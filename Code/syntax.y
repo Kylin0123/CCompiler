@@ -8,7 +8,10 @@ int yylex();
 void yyerror(const char* s);
 int success = 1;
 extern SymbolTable symbolTable;
-extern TypeStack typeStack;
+extern SymbolTable structSymbolTable;
+extern TypeStack typeStack;   //record the values' type in function
+extern TypeStack structStack;  //record the struct levels and the current struct
+Type t;   //pass the current type value when defining variables.
 
 %}
 %locations
@@ -42,7 +45,8 @@ Program: ExtDefList{
            exit(0);
        }
        assert($$ != NULL);
-       printNodeTree($$, 0);
+       //printNodeTree($$, 0);
+       printSymbolTable(structSymbolTable);
        printSymbolTable(symbolTable);
        }
        ;
@@ -55,7 +59,6 @@ ExtDefList: ExtDef ExtDefList {
           ;
 ExtDef: Specifier ExtDecList SEMI {
       $$=newNode("ExtDef",3,$1,$2,$3);
-      newVar(2,$1,$2);
       }
       | Specifier SEMI {
       $$=newNode("ExtDef",2,$1,$2);
@@ -68,25 +71,69 @@ ExtDef: Specifier ExtDecList SEMI {
       ;
 ExtDecList: VarDec{
           $$=newNode("ExtDecList",1,$1);
+          newSymbol($1->id,$1->type);
           }
           | VarDec COMMA ExtDecList{
           $$=newNode("ExtDecList",3,$1,$2,$3);
+          newSymbol($1->id,$1->type);
           }
           ;
 Specifier: TYPE {
          $$=newNode("Specifier",1,$1);
-         //$$->type = $1->type;
-         copytype($$->type, $1->type);
+         copytype(t, $1->type);
          }
          | StructSpecifier{
          $$=newNode("Specifier",1,$1);
+         copytype(t, $1->type);
          }
          ;
-StructSpecifier: STRUCT OptTag LC DefList RC{
-               $$=newNode("StructSpecifier",5,$1,$2,$3,$4,$5);
+StructSpecifier: STRUCT OptTag LC {
+               Type type = newType();
+               type->kind = STRUCTURE;
+               addTypeStack(structStack, type);
+               } DefList RC{
+               $$=newNode("StructSpecifier",5,$1,$2,$3,$5,$6);
+               Type structType = getTypeStackTop(structStack);
+               char* structName = $2->id;
+               if(strlen(structName) > 0){
+                   /*have struct name*/
+                   $$->type = newType();
+                   $$->type->structure.list = NULL;
+                   copystr($$->type->structure.tag, structName);
+                   SymbolNode structSymbolNode
+                        = newSymbolNode(structName, structType);
+                   if(haveSymbolNode(structSymbolTable, structSymbolNode)){
+                       printf("Error type 16 at Line %d: Duplicated name \"%s\".\n",
+                       $2->lineno,
+                       structName);
+                       success = 0;
+                   }
+                   else
+                       insert(structSymbolTable, structSymbolNode);
+                   /*printf("%s: ",structName);
+                   printType(structType);
+                   printf("\n");
+                   printSymbolTable(structSymbolTable);*/
+               }
+               else{
+                   /*not have struct name*/
+                   copytype($$->type, structType);
+               }
+               popTypeStack(structStack);
                }
                | STRUCT Tag{
                $$=newNode("StructSpecifier",2,$1,$2);
+               Type type = getTagType($2->id);
+               if(!type){
+                   printf("Error type 17 at Line %d: Undefined structure \"%s\".\n",
+                   yylineno,
+                   $2->id);
+                   success = 0;
+               }
+               else{
+                   strcpy($$->id, $2->id);
+                   copytype($$->type, type);
+               }
                }
                ;
 OptTag: ID{
@@ -102,14 +149,24 @@ Tag: ID{
    ;
 VarDec: ID{
       $$=newNode("VarDec",1,$1);
-      $$->type = newType();
-      $$->type->kind = BASIC;
+      Type structType;
+      if((structType = getTypeStackTop(structStack)) != 0){
+          /*in struct*/
+          copytype($$->type, t);
+      }
+      else{
+          /*not in struct*/
+          copytype($$->type, t);
+      }
       }
       | VarDec LB INT RB{
       $$=newNode("VarDec",4,$1,$2,$3,$4);
+      Type newT = newType();
+      newT->kind = ARRAY;
+      copytype(newT->array.elem, $1->type);
+      newT->array.size = $3->i;
+      copytype($$->type, newT);
       strcpy($$->id, $1->id);
-      $$->type = newType();
-      $$->type->kind = ARRAY;
       }
       ;
 FunDec: ID LP VarList RP{
@@ -131,7 +188,7 @@ VarList: ParamDec COMMA VarList{
 ParamDec: Specifier VarDec{
         $$=newNode("ParamDec",2,$1,$2); 
         newParam(2,$1,$2);
-        newVar(2,$1,$2);
+        newSymbol($2->id,$2->type);
         }
         ;
 CompSt: LC DefList StmtList RC{
@@ -184,16 +241,13 @@ DefList: Def DefList{
        ;
 Def: Specifier DecList SEMI{
    $$=newNode("Def",3,$1,$2,$3);
-   newVar(2,$1,$2);
-   /*if($2->type != NULL){
-       if($2->type->kind == ARRAY){
-           printf("array!\n");
-           //newArray(2,$1,$2);
-           newVar(2,$1,$2);
-       }
-       else
-           newVar(2,$1,$2);
-   }*/
+   Type structType;
+   if((structType = getTypeStackTop(structStack)) != NULL){
+       /*in struct*/
+   }
+   else{
+       /*not in struct*/
+   }
    }
    | error SEMI { success = 0; yyerrok; }
    ;
@@ -202,15 +256,39 @@ DecList: Dec {
        }
        | Dec COMMA DecList{
        $$=newNode("DecList",3,$1,$2,$3);
+       strcmp($$->id, $1->id);
        copytype($$->type, $1->type);
        }
        ;
 Dec: VarDec {
    $$=newNode("Dec",1,$1);
+   Type structType;
+   if((structType = getTypeStackTop(structStack)) == NULL){
+       /*not in struct*/
+       newSymbol($1->id,$1->type);
+   }
+   else{
+        /*in struct*/
+        FieldList fieldList = newFieldList();
+        if(structType->structure.list == NULL){
+            structType->structure.list = newFieldList();
+            copystr(structType->structure.list->name, $1->id);
+            copytype(structType->structure.list->type, $1->type);
+        }
+        else{
+            FieldList fieldList = newFieldList();
+            copystr(fieldList->name, $1->id);
+            copytype(fieldList->type, $1->type);
+            addFieldList(structType->structure.list, fieldList);
+        }       
+   }
    }
    | VarDec ASSIGNOP Exp{
    $$=newNode("Dec",3,$1,$2,$3);
-   strcpy($$->id, $1->id);
+   if(getTypeStackTop(structStack) == NULL)
+       newSymbol($1->id,$1->type);
+   else
+       assert(0); //TODO
    }
    ;
 Exp:Exp ASSIGNOP Exp{
@@ -263,15 +341,41 @@ Exp:Exp ASSIGNOP Exp{
    }
    | Exp LB Exp RB{
    $$=newNode("Exp",4,$1,$2,$3,$4);
-   //TODO
-   if(!isArray($3->type)){
+   if($1->type->kind != ARRAY){
        printf("Error type 10 at Line %d: \"%s\" is not an array.\n",
        yylineno,
        $1->id);
        success = 0;
    }
+   if($3->type->kind != BASIC || 
+   ($3->type->kind == BASIC && strcmp($3->type->basic, "int"))){
+       printf("Error type 12 at Line %d: \"",yylineno);
+       printExp($3);
+       printf("\" is not an integer.\n");
+       success = 0;
    }
-   | Exp DOT ID{$$=newNode("Exp",3,$1,$2,$3);}
+   }
+   | Exp DOT ID{
+   $$=newNode("Exp",3,$1,$2,$3);
+   if($1->type->kind != STRUCTURE){
+       printf("Error type 13 at Line %d: Illegal use of \".\".\n",
+       yylineno);
+       success = 0;
+   }
+   else{
+       int offset;
+       bool ret = getStructVarOffset($3->id, $1->type, &offset);
+       if(!ret){
+           printf("Error type 14 at Line %d: Non-existent field \"%s\".\n",
+           yylineno,
+           $3->id);
+           success = 0;
+       }
+       else{
+           //get the variable in struct's offset
+       }
+   }
+   }
    | ID{
    $$=newNode("Exp",1,$1);
    Type type = haveVar($1->id);
@@ -293,7 +397,7 @@ Exp:Exp ASSIGNOP Exp{
    ;
 Args: Exp COMMA Args{
     $$=newNode("Args",3,$1,$2,$3);
-    newArg($1->type);
+   newArg($1->type);
     }
     | Exp{
     $$=newNode("Args",1,$1);

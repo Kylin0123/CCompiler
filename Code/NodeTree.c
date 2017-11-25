@@ -69,7 +69,7 @@ Node* newNode(char* name, int num, ...){
 
         if(num == 1){
             strcpy(retNode->id, tmp->id);
-            retNode->type = tmp->type;
+            copytype(retNode->type, tmp->type);
         }
         
         retNode->child = tmp;
@@ -126,6 +126,15 @@ void addTypeStack(TypeStack typeStack, Type type){
     memcpy(newType, type, size);
     typeStack->stack[typeStack->num] = newType;
     typeStack->num++;
+}
+
+Type getTypeStackTop(TypeStack typeStack){
+    if(typeStack->num == 0) return NULL;
+    return typeStack->stack[typeStack->num - 1];
+}
+
+void popTypeStack(TypeStack typeStack){
+    typeStack->num--;
 }
 
 void clearTypeStack(TypeStack typeStack){

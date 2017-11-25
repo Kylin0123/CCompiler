@@ -58,6 +58,18 @@ test:
 	@echo 'Error type 11 at Line 4: "i" is not a function.'
 	./parser ../pretest2/12.txt
 	@echo 'Error type 12 at Line 4: "1.5" is not an integer.'
+	./parser ../pretest2/13.txt
+	@echo 'Error type 13 at Line 9: Illegal use of ".".'
+	./parser ../pretest2/14.txt
+	@echo 'Error type 14 at Line 9: Non-existent field "n".'
+	./parser ../pretest2/15.txt
+	@echo 'Error type 15 at Line 4: Redefined field "x".'
+	./parser ../pretest2/16.txt
+	@echo 'Error type 16 at Line 6: Duplicated name "Position".'
+	./parser ../pretest2/17.txt
+	@echo 'Error type 17 at Line 3: Undefined structure "Position".'
+	./parser ../pretest2/18.txt
+	@echo 'maybe'
 clean:
 	rm -f parser lex.yy.c syntax.tab.c syntax.tab.h syntax.output
 	rm -f $(OBJS) $(OBJS:.o=.d)

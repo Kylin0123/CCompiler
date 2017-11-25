@@ -6,7 +6,9 @@
 extern void yyrestart(FILE*);
 extern void yyparse();
 SymbolTable symbolTable;
+SymbolTable structSymbolTable;
 TypeStack typeStack;
+TypeStack structStack;
 
 int main(int argc, char** argv)
 {
@@ -18,7 +20,9 @@ int main(int argc, char** argv)
         return 1;
     }
     symbolTable = newSymbolTable();
+    structSymbolTable = newSymbolTable();
     typeStack = newTypeStack();
+    structStack = newTypeStack();
     yyrestart(f);
     yyparse();
     return 0;

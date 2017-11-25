@@ -14,6 +14,7 @@
 
 typedef struct Type_* Type;
 typedef struct FieldList_* FieldList;
+typedef struct Node Node;
 
 struct Type_{
     enum { BASIC, ARRAY, STRUCTURE, FUNCTION } kind;
@@ -24,8 +25,9 @@ struct Type_{
         // 数组类型信息包括元素类型与数组大小构成
         struct { Type elem; int size; } array;
         // 结构体类型信息是一个链表
-        FieldList structure;
-        // function type's info structure
+        struct { char* tag; FieldList list; } structure;
+        //char* structure;
+        // the structure of function type's information 
         struct {
             Type retType;
             int paraNum;
@@ -42,10 +44,12 @@ struct FieldList_{
 
 typedef struct SymbolNode_* SymbolNode;
 typedef struct  SymbolTable_* SymbolTable;
+//typedef struct StructSymbolTable_* StructSymbolTable;
+//typedef struct StructSymbolNode_* StructSymbolNode;
 
 struct SymbolNode_{
-    char* varName;
-    Type varType; 
+    char* name;
+    Type type; 
     SymbolNode tail;
 };
 
@@ -53,8 +57,27 @@ struct SymbolTable_{
     SymbolNode bucket[0x3fff];
 };
 
+/*
+struct StructSymbolNode_{
+    char* tag;
+    FieldList structure;
+    StructSymbolNode tail;
+};
+
+struct StructSymbolTable_{
+    StructSymbolNode bucket[0x3fff];
+};
+*/
+
 SymbolTable newSymbolTable();
+bool haveSymbolNode(SymbolTable symbolTable, SymbolNode symbolNode);
+void insert(SymbolTable symbolTable, SymbolNode insertNode);
 void printSymbolTable(SymbolTable symboltable);
+
+SymbolNode newSymbolNode(char* name, Type type);
+
+FieldList newFieldList();
+void addFieldList(FieldList head, FieldList fieldList);
 
 Type newType();
 Type matchType(Type t1, Type t2, bool isShowError);
@@ -63,14 +86,26 @@ Type matchReturnType(Type t1, Type t2, int lineno);
 Type matchArgsType(Type funcType, char* funcName);
 void printType(Type type);
 
-void newVar(int num, ...);
+void printExp(Node*);
+
+void newSymbol(char* name, Type type);
+
+/*void newVar(int num, ...);*/
 Type haveVar(char* varName);
 
+bool getStructVarOffset(char* name, Type type, int* offset);
+
+/*void newArray(int num, ...);*/
+    
 void newParam(int num, ...);
 
 void newArg(Type type);
 
-bool isArray(Type type);
+void newStruct(int num, ...);
+
+Type getTagType(char* tag);
+
+/*bool isArray(Type type);*/
 
 void newFunc(int num, ...);
 Type haveFunc(char* funcName);

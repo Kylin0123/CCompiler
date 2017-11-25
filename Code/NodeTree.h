@@ -40,6 +40,8 @@ struct TypeStack_{
 
 TypeStack newTypeStack();
 void addTypeStack(TypeStack typeStack, Type type);
+Type getTypeStackTop(TypeStack typeStack);
+void popTypeStack(TypeStack typeStack);
 void clearTypeStack(TypeStack typeStack);
 
 bool isLeftVal(Node* node);
