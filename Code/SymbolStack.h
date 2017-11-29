@@ -8,8 +8,6 @@
 #ifndef _SYMBOLSTACK_H
 #define _SYMBOLSTACK_H
 
-#include "SymbolStack.h"
-
 typedef struct SymbolStack_* SymbolStack;
 
 struct SymbolStack_{
@@ -19,5 +17,8 @@ struct SymbolStack_{
 SymbolStack newSymbolStack();
 void pushIntoSymbolStack(SymbolStack symbolStack, SymbolNode symbolNode);
 SymbolNode popFromSymbolStack(SymbolStack symbolStack);
+SymbolNode getTopFromSymbolStack(SymbolStack symbolStack);
+void clearSymbolStack(SymbolStack symbolStack);
+int getLengthOfSymbolStack(SymbolStack symbolStack);
 
 #endif

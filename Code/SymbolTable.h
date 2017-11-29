@@ -18,6 +18,7 @@ struct SymbolNode_{
     char* name;
     Type type; 
     SymbolNode tail;
+    SymbolNode stack_next;
 };
 
 struct SymbolTable_{
@@ -27,6 +28,7 @@ struct SymbolTable_{
 SymbolTable newSymbolTable();
 bool haveSymbolNode(SymbolTable symbolTable, SymbolNode symbolNode);
 void insert(SymbolTable symbolTable, SymbolNode insertNode);
+void delete(SymbolTable symbolTable, SymbolNode deleteNode);
 void printSymbolTable(SymbolTable symboltable);
 
 SymbolNode newSymbolNode(char* name, Type type);

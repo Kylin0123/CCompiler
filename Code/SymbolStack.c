@@ -15,6 +15,7 @@ SymbolStack newSymbolStack(){
 }
 
 void pushIntoSymbolStack(SymbolStack symbolStack, SymbolNode symbolNode){
+    assert(symbolStack != NULL);
     if(symbolStack->head == NULL){
         symbolStack->head = symbolNode;
     }
@@ -26,13 +27,28 @@ void pushIntoSymbolStack(SymbolStack symbolStack, SymbolNode symbolNode){
 }
 
 SymbolNode popFromSymbolStack(SymbolStack symbolStack){
-    assert(symbolStack->head != NULL);
+    assert(symbolStack != NULL);
+    if(symbolStack->head == NULL)
+        return NULL;
     SymbolNode ret = symbolStack->head;
     symbolStack->head = ret->tail;
     return ret;
 }
 
 SymbolNode getTopFromSymbolStack(SymbolStack symbolStack){
-    assert(symbolStack->head != NULL);
+    assert(symbolStack != NULL);
     return symbolStack->head;
+}
+
+void clearSymbolStack(SymbolStack symbolStack){
+    //NOTE: memory leak
+    symbolStack->head = NULL;
+}
+
+int getLengthOfSymbolStack(SymbolStack symbolStack){
+    int len = 0;
+    SymbolNode head = symbolStack->head;
+    for(; head != NULL; head = head->tail)
+        len++;
+    return len;
 }

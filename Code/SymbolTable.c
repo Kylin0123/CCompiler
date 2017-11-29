@@ -13,12 +13,14 @@
 #include "SymbolTable.h"
 #include "NodeTree.h"
 #include "TypeStack.h"
-
+#include "SymbolStack.h"
 
 extern SymbolTable symbolTable;
 extern SymbolTable structSymbolTable;
 extern TypeStack typeStack;
+extern SymbolStack paraStack;
 extern TypeStack structStack;
+extern SymbolStack symbolStack;
 extern int success;
 extern int yylineno;
 extern int yycolumn;
@@ -47,6 +49,24 @@ void insert(SymbolTable symbolTable, SymbolNode insertNode){
     SymbolNode symbolNode = symbolTable->bucket[hash_num];
     symbolTable->bucket[hash_num] = insertNode;
     insertNode->tail = symbolNode;
+}
+
+void delete(SymbolTable symbolTable, SymbolNode deleteNode){
+    assert(symbolTable != NULL);
+    assert(deleteNode != NULL);
+    char* name = deleteNode->name;
+    unsigned int hash_num = hash_pjw(name);
+    SymbolNode symbolNode = symbolTable->bucket[hash_num];
+    if(symbolNode == deleteNode){
+        symbolTable->bucket[hash_num] = deleteNode->tail;
+        free(deleteNode);
+    }
+    for(; symbolNode != NULL && symbolNode->tail != deleteNode;
+        symbolNode = symbolNode->tail);
+    if(symbolNode != NULL){
+        symbolNode->tail = deleteNode->tail;
+        free(deleteNode);
+    }
 }
 
 bool haveSymbolNode(SymbolTable symbolTable, SymbolNode symbolNode){
@@ -287,28 +307,27 @@ Type getSymbol(char* name){
 bool haveSymbol(char* name, Type type){
     unsigned int hash_num = hash_pjw(name);
     SymbolNode head = symbolTable->bucket[hash_num];
+    
+    SymbolNode stack_head = getTopFromSymbolStack(symbolStack);
+
     for(; head != NULL; head = head->tail){
         if(!strcmp(name, head->name) && matchType(head->type, type)){
-            switch(type->kind){
-                case BASIC:{
-                    printf("Error type 3 at Line %d: Redefined variable \"%s\".\n",
-                          yylineno,
-                          name);
-                    break;
-                }/*
-                case ARRAY:{
-                    break;
+            for(; stack_head != NULL; stack_head = stack_head->stack_next){
+                if(stack_head == head){
+                    switch(type->kind){
+                        //TODO: other types
+                        case BASIC:{
+                            printf("Error type 3 at Line %d: Redefined variable \"%s\".\n",
+                                   yylineno,
+                                   name);
+                            break;
+                        }
+                        default:assert(0);
+                    }
+                    success = 0;
+                    return true;
                 }
-                case FUNCTION:{
-                    break;
-                }
-                case STRUCTURE:{
-                    break;
-                }*/
-                default:assert(0);
             }
-            success = 0;
-            return true;
         }
     }
     return false;
@@ -316,7 +335,13 @@ bool haveSymbol(char* name, Type type){
 
 void newSymbol(char* name, Type type){
     if(haveSymbol(name, type)) return;
+    SymbolNode currentScope = getTopFromSymbolStack(symbolStack);
     SymbolNode symbolNode = newSymbolNode(name, type);
+    if(currentScope != NULL){
+        SymbolNode head = currentScope->stack_next;
+        currentScope->stack_next = symbolNode;
+        symbolNode->stack_next = head;
+    }
     insert(symbolTable, symbolNode);
 }
 
@@ -341,7 +366,10 @@ void newParam(int num, ...){
         Node* decNode = va_arg(valist, Node*);
         Type type;
         copytype(type, specifierNode->type);
-        addTypeStack(typeStack, type);
+        SymbolNode symbolNode = newSymbolNode(decNode->id, type);
+        
+        pushIntoSymbolStack(paraStack, symbolNode);
+        //addTypeStack(typeStack, type);
     }
 }
 
@@ -367,12 +395,17 @@ void newUndefinedFunc(char* name, Type retType, int lineno){
         type->function.isDefined = false;
         type->function.lineno = lineno;
         type->function.retType = retType;
-        type->function.paraNum = typeStack->num;
-        int len = typeStack->num * sizeof(struct Type_);
+        type->function.paraNum = getLengthOfSymbolStack(paraStack);
+        //type->function.paraNum = typeStack->num;
+        int len = type->function.paraNum * sizeof(struct Type_);
         type->function.para = malloc(len);
-        memcpy(type->function.para, &typeStack->stack[0], len);
-        clearTypeStack(typeStack);
-        assert(typeStack->num == 0);
+        //memcpy(type->function.para, &typeStack->stack[0], len);
+        SymbolNode head = paraStack->head;
+        for(int i = 0; head != NULL; head = head->tail, i++){
+            copytype(type->function.para[i], head->type);
+        }
+        clearSymbolStack(paraStack);
+        //clearTypeStack(typeStack);
 
         Type tmpType = haveFunc(name);
 
@@ -408,12 +441,19 @@ void newDefinedFunc(char* name, Type retType, int lineno){
 
         type->function.isDefined = true;
         type->function.retType = retType;
-        type->function.paraNum = typeStack->num;
-        int len = typeStack->num * sizeof(struct Type_);
+        type->function.paraNum = getLengthOfSymbolStack(paraStack);
+        //type->function.paraNum = typeStack->num;
+        int len = type->function.paraNum * sizeof(struct Type_);
+        //int len = typeStack->num * sizeof(struct Type_);
         type->function.para = malloc(len);
-        memcpy(type->function.para, &typeStack->stack[0], len);
-        clearTypeStack(typeStack);
-        assert(typeStack->num == 0);
+        //memcpy(type->function.para, &typeStack->stack[0], len);
+        SymbolNode head = paraStack->head;
+        for(int i = 0; head != NULL; head = head->tail, i++){
+            copytype(type->function.para[i], head->type);
+        }
+        clearSymbolStack(paraStack);
+        //clearTypeStack(typeStack);
+        //assert(typeStack->num == 0);
 
         Type tmpType = haveFunc(name);
 

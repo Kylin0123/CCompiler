@@ -11,6 +11,7 @@ extern void yyparse();
 SymbolTable symbolTable;
 SymbolTable structSymbolTable;
 TypeStack typeStack;
+SymbolStack paraStack;
 TypeStack structStack;
 SymbolStack symbolStack;
 
@@ -26,6 +27,7 @@ int main(int argc, char** argv)
     symbolTable = newSymbolTable();
     structSymbolTable = newSymbolTable();
     typeStack = newTypeStack();
+    paraStack = newSymbolStack();
     structStack = newTypeStack();
     symbolStack = newSymbolStack();
     yyrestart(f);

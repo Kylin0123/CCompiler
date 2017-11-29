@@ -75,6 +75,12 @@ test:
 	@echo 'Error type 18 at Line 6: Undefined function "func" .'
 	./parser ../pretest2/20.txt
 	@echo 'PERFECT!'
+	./parser ../pretest2/21.txt
+	@echo 'Error type 3 at Line 10: Redefined variable "i".'
+	./parser ../pretest2/22.txt
+	@echo 'PERFECT!'
+	./parser ../pretest2/23.txt
+	@echo 'Error type 5 at Line 16: Type mismatched for assignment.'
 clean:
 	rm -f parser lex.yy.c syntax.tab.c syntax.tab.h syntax.output
 	rm -f $(OBJS) $(OBJS:.o=.d)

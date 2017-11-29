@@ -13,10 +13,10 @@ int success = 1;   //Record the result of parsing.
 extern SymbolTable symbolTable;   //Record symbols by the hash table.
 extern SymbolTable structSymbolTable;   //The node in the hash table.
 extern TypeStack typeStack;   //Record the values' type in function.
+extern SymbolStack paraStack;
 extern TypeStack structStack;  //Record the struct levels and the current struct.
 extern SymbolStack symbolStack;  //Record the symbol stack for action scope.
 Type t;   //Pass the current type value when defining variables. It's important.
-bool isDefiningFunc = true;  //Record the state whether defining functions or not.
 
 %}
 %locations
@@ -69,16 +69,14 @@ ExtDef: Specifier ExtDecList SEMI {
       | Specifier SEMI {
       $$=newNode("ExtDef",2,$1,$2);
       }
+      | Specifier FunDec SEMI{
+      newUndefinedFunc($2->id, $1->type, $2->lineno);
+      }
       | Specifier FunDec CompSt{
       $$=newNode("ExtDef",3,$1,$2,$3);
-      if(isDefiningFunc){
       newDefinedFunc($2->id, $1->type, $2->lineno);
       //$->code
       matchReturnType($1->type, $3->type, $3->lineno);
-      }
-      else{
-      newUndefinedFunc($2->id, $1->type, $2->lineno);
-      }
       }
       ;
 ExtDecList: VarDec{
@@ -188,22 +186,28 @@ VarList: ParamDec COMMA VarList{
 ParamDec: Specifier VarDec{
         $$=newNode("ParamDec",2,$1,$2); 
         newParam(2,$1,$2);
-        if(isDefiningFunc)
-            newSymbol($2->id,$2->type);
         }
         ;
-CompSt: { isDefiningFunc = true;
-      /*symbol stack push*/
+CompSt: {
       SymbolNode symbolNode = newSymbolNode(NULL, NULL);
       pushIntoSymbolStack(symbolStack, symbolNode);
+      SymbolNode head = paraStack->head;
+      for(; head != NULL; head = head->tail){
+          newSymbol(head->name, head->type);
+      }
       } LC DefList StmtList RC{
       $$=newNode("CompSt",4,$2,$3,$4,$5);
       $$->lineno = $4->lineno;
       copytype($$->type, $4->type);
+      SymbolNode s = popFromSymbolStack(symbolStack);
+      if(s != NULL){
+        s = s->stack_next;
+        while(s != NULL){
+            SymbolNode deleteNode = s;
+            s = s->stack_next;
+            delete(symbolTable, deleteNode);
+        }
       }
-      | { isDefiningFunc = false; } SEMI{
-      /*add syntax*/
-      $$=newNode("SEMI",1,$2);
       }
       ;
 StmtList: Stmt StmtList{
