@@ -12,8 +12,8 @@ void yyerror(const char* s);
 int success = 1;   //Record the result of parsing.
 extern SymbolTable symbolTable;   //Record symbols by the hash table.
 extern SymbolTable structSymbolTable;   //The node in the hash table.
-extern TypeStack typeStack;   //Record the values' type in function.
-extern SymbolStack paraStack;
+extern TypeStack typeStack;   //Record the values' type when calling function.
+extern SymbolStack paraStack;  //Record the params' symbol when defining function.
 extern TypeStack structStack;  //Record the struct levels and the current struct.
 extern SymbolStack symbolStack;  //Record the symbol stack for action scope.
 Type t;   //Pass the current type value when defining variables. It's important.
@@ -52,8 +52,8 @@ Program: ExtDefList{
        }
        assert($$ != NULL);
        //printNodeTree($$, 0);
-       printSymbolTable(structSymbolTable);
-       printSymbolTable(symbolTable);
+       //printSymbolTable(structSymbolTable);
+       //printSymbolTable(symbolTable);
        }
        ;
 ExtDefList: ExtDef ExtDefList {
@@ -330,12 +330,45 @@ Exp:Exp ASSIGNOP Exp{
        copytype($$->type, $1->type);
    }
    }
-   | Exp MINUS Exp{$$=newNode("Exp",3,$1,$2,$3);}
-   | Exp STAR Exp{$$=newNode("Exp",3,$1,$2,$3);}
-   | Exp DIV Exp{$$=newNode("Exp",3,$1,$2,$3);}
-   | LP Exp RP{$$=newNode("Exp",3,$1,$2,$3);}
-   | MINUS Exp %prec UMINUS{$$=newNode("Exp",2,$1,$2);}
-   | NOT Exp{$$=newNode("Exp",2,$1,$2);}
+   | Exp MINUS Exp{$$=newNode("Exp",3,$1,$2,$3);
+   if(!matchType($1->type, $3->type)){
+       printf("Error type 7 at Line %d: Type mismatched for operands.\n"
+               ,yylineno);
+       success = 0;
+   }
+   else{
+       copytype($$->type, $1->type);
+   }
+   }
+   | Exp STAR Exp{$$=newNode("Exp",3,$1,$2,$3);
+   if(!matchType($1->type, $3->type)){
+       printf("Error type 7 at Line %d: Type mismatched for operands.\n"
+               ,yylineno);
+       success = 0;
+   }
+   else{
+       copytype($$->type, $1->type);
+   }
+   }
+   | Exp DIV Exp{$$=newNode("Exp",3,$1,$2,$3);
+   if(!matchType($1->type, $3->type)){
+       printf("Error type 7 at Line %d: Type mismatched for operands.\n"
+               ,yylineno);
+       success = 0;
+   }
+   else{
+       copytype($$->type, $1->type);
+   }
+   }
+   | LP Exp RP{$$=newNode("Exp",3,$1,$2,$3);
+   copytype($$->type, $2->type);
+   }
+   | MINUS Exp %prec UMINUS{$$=newNode("Exp",2,$1,$2);
+   copytype($$->type, $2->type);
+   }
+   | NOT Exp{$$=newNode("Exp",2,$1,$2);
+   copytype($$->type, $2->type);
+   }
    | ID LP Args RP{
    $$=newNode("Exp",4,$1,$2,$3,$4);
    Type type = haveFunc($1->id);
@@ -385,7 +418,8 @@ Exp:Exp ASSIGNOP Exp{
    }
    else{
        int offset;
-       bool ret = getStructVarOffset($3->id, $1->type, &offset);
+       Type type;
+       bool ret = getStructVarOffset($3->id, $1->type, &offset, &type);
        if(!ret){
            printf("Error type 14 at Line %d: Non-existent field \"%s\".\n",
            yylineno,
@@ -394,6 +428,7 @@ Exp:Exp ASSIGNOP Exp{
        }
        else{
            //get the variable in struct's offset
+           copytype($$->type, type);
        }
    }
    }

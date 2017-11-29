@@ -345,13 +345,14 @@ void newSymbol(char* name, Type type){
     insert(symbolTable, symbolNode);
 }
 
-bool getStructVarOffset(char* name, Type type, int* offset){
+bool getStructVarOffset(char* name, Type type, int* retOffset, Type* retType){
     assert(type->kind == STRUCTURE);
     FieldList head = type->structure.list;
     for(; head != NULL; head = head->tail){
         if(!strcmp(head->name, name)){
-            // should set *offset
-            assert(0);
+            //TODO: should set *offset
+            *retType = head->type;
+            //assert(0);
             return true;
         }
     }
@@ -369,7 +370,6 @@ void newParam(int num, ...){
         SymbolNode symbolNode = newSymbolNode(decNode->id, type);
         
         pushIntoSymbolStack(paraStack, symbolNode);
-        //addTypeStack(typeStack, type);
     }
 }
 
@@ -396,16 +396,13 @@ void newUndefinedFunc(char* name, Type retType, int lineno){
         type->function.lineno = lineno;
         type->function.retType = retType;
         type->function.paraNum = getLengthOfSymbolStack(paraStack);
-        //type->function.paraNum = typeStack->num;
         int len = type->function.paraNum * sizeof(struct Type_);
         type->function.para = malloc(len);
-        //memcpy(type->function.para, &typeStack->stack[0], len);
         SymbolNode head = paraStack->head;
         for(int i = 0; head != NULL; head = head->tail, i++){
             copytype(type->function.para[i], head->type);
         }
         clearSymbolStack(paraStack);
-        //clearTypeStack(typeStack);
 
         Type tmpType = haveFunc(name);
 
@@ -442,18 +439,13 @@ void newDefinedFunc(char* name, Type retType, int lineno){
         type->function.isDefined = true;
         type->function.retType = retType;
         type->function.paraNum = getLengthOfSymbolStack(paraStack);
-        //type->function.paraNum = typeStack->num;
         int len = type->function.paraNum * sizeof(struct Type_);
-        //int len = typeStack->num * sizeof(struct Type_);
         type->function.para = malloc(len);
-        //memcpy(type->function.para, &typeStack->stack[0], len);
         SymbolNode head = paraStack->head;
         for(int i = 0; head != NULL; head = head->tail, i++){
             copytype(type->function.para[i], head->type);
         }
         clearSymbolStack(paraStack);
-        //clearTypeStack(typeStack);
-        //assert(typeStack->num == 0);
 
         Type tmpType = haveFunc(name);
 

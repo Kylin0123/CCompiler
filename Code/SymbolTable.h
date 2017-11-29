@@ -55,7 +55,7 @@ Type haveFunc(char* funcName);
 void checkUndefinedFuncBeforeExit();
 
 void newStruct(int num, ...);
-bool getStructVarOffset(char* name, Type type, int* offset);
+bool getStructVarOffset(char* name, Type type, int* retOffset, Type* retType);
 Type getTagType(char* tag);
     
 void newParam(int num, ...);
