@@ -10,6 +10,8 @@
 #include <string.h>
 #include <assert.h>
 #include <stdarg.h>
+#include "Type.h"
+#include "SymbolTable.h"
 #include "NodeTree.h"
 
 extern char* yytext;
@@ -60,11 +62,6 @@ Node* newNode(char* name, int num, ...){
     }
     else if(num > 0){
         Node* tmp = va_arg(valist, Node*);
-        
-        /*if(tmp == NULL){
-            fprintf(stderr, "warning:tmp==NULL\n");
-            return retNode;
-        }*/
         assert(tmp != NULL);
 
         if(num == 1){
@@ -111,49 +108,5 @@ void printNodeTree(Node* root, int blankNum){
     for(;tmp != NULL;tmp = tmp->sibling){
         printNodeTree(tmp, blankNum + 1);
     }
-}
-
-/*TypeStack*/
-TypeStack newTypeStack(){
-    TypeStack typeStack = malloc(sizeof(struct TypeStack_));
-    typeStack->num = 0;
-    return typeStack;
-}
-
-void addTypeStack(TypeStack typeStack, Type type){
-    int size = sizeof(struct Type_);
-    Type newType = malloc(sizeof(struct Type_));
-    memcpy(newType, type, size);
-    typeStack->stack[typeStack->num] = newType;
-    typeStack->num++;
-}
-
-Type getTypeStackTop(TypeStack typeStack){
-    if(typeStack->num == 0) return NULL;
-    return typeStack->stack[typeStack->num - 1];
-}
-
-void popTypeStack(TypeStack typeStack){
-    typeStack->num--;
-}
-
-void clearTypeStack(TypeStack typeStack){
-    typeStack->num = 0;
-}
-
-bool isLeftVal(Node* node){
-    assert(!strcmp(node->tag_name, "Exp"));
-    if(!strcmp(node->child->tag_name, "ID") && node->child->sibling == NULL)
-        return true;
-    else if(!strcmp(node->child->tag_name, "Exp")
-           && !strcmp(node->child->sibling->tag_name, "DOT")
-           && !strcmp(node->child->sibling->sibling->tag_name, "ID"))
-        return true;
-    else if(!strcmp(node->child->tag_name, "Exp")
-           && !strcmp(node->child->sibling->tag_name, "LB")
-           && !strcmp(node->child->sibling->sibling->tag_name, "Exp")
-           && !strcmp(node->child->sibling->sibling->sibling->tag_name, "RB"))
-        return true;
-    return false;
 }
 

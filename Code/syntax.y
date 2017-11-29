@@ -1,17 +1,22 @@
 %{
 #include "lex.yy.c"
 #include <stdio.h>
+#include "Type.h"
 #include "NodeTree.h"
 #include "SymbolTable.h"
+#include "TypeStack.h"
+#include "SymbolStack.h"
 
 int yylex();
 void yyerror(const char* s);
-int success = 1;
-extern SymbolTable symbolTable;
-extern SymbolTable structSymbolTable;
-extern TypeStack typeStack;   //record the values' type in function
-extern TypeStack structStack;  //record the struct levels and the current struct
-Type t;   //pass the current type value when defining variables.
+int success = 1;   //Record the result of parsing.
+extern SymbolTable symbolTable;   //Record symbols by the hash table.
+extern SymbolTable structSymbolTable;   //The node in the hash table.
+extern TypeStack typeStack;   //Record the values' type in function.
+extern TypeStack structStack;  //Record the struct levels and the current struct.
+extern SymbolStack symbolStack;  //Record the symbol stack for action scope.
+Type t;   //Pass the current type value when defining variables. It's important.
+bool isDefiningFunc = true;  //Record the state whether defining functions or not.
 
 %}
 %locations
@@ -41,6 +46,7 @@ Type t;   //pass the current type value when defining variables.
 %%
 Program: ExtDefList{
        $$=newNode("Program",1,$1);
+       checkUndefinedFuncBeforeExit();
        if(!success) {
            exit(0);
        }
@@ -65,8 +71,14 @@ ExtDef: Specifier ExtDecList SEMI {
       }
       | Specifier FunDec CompSt{
       $$=newNode("ExtDef",3,$1,$2,$3);
-      newFunc(2,$1,$2);
+      if(isDefiningFunc){
+      newDefinedFunc($2->id, $1->type, $2->lineno);
+      //$->code
       matchReturnType($1->type, $3->type, $3->lineno);
+      }
+      else{
+      newUndefinedFunc($2->id, $1->type, $2->lineno);
+      }
       }
       ;
 ExtDecList: VarDec{
@@ -110,10 +122,6 @@ StructSpecifier: STRUCT OptTag LC {
                    }
                    else
                        insert(structSymbolTable, structSymbolNode);
-                   /*printf("%s: ",structName);
-                   printType(structType);
-                   printf("\n");
-                   printSymbolTable(structSymbolTable);*/
                }
                else{
                    /*not have struct name*/
@@ -149,15 +157,7 @@ Tag: ID{
    ;
 VarDec: ID{
       $$=newNode("VarDec",1,$1);
-      Type structType;
-      if((structType = getTypeStackTop(structStack)) != 0){
-          /*in struct*/
-          copytype($$->type, t);
-      }
-      else{
-          /*not in struct*/
-          copytype($$->type, t);
-      }
+      copytype($$->type, t);
       }
       | VarDec LB INT RB{
       $$=newNode("VarDec",4,$1,$2,$3,$4);
@@ -188,13 +188,22 @@ VarList: ParamDec COMMA VarList{
 ParamDec: Specifier VarDec{
         $$=newNode("ParamDec",2,$1,$2); 
         newParam(2,$1,$2);
-        newSymbol($2->id,$2->type);
+        if(isDefiningFunc)
+            newSymbol($2->id,$2->type);
         }
         ;
-CompSt: LC DefList StmtList RC{
-      $$=newNode("CompSt",4,$1,$2,$3,$4);
-      $$->lineno = $3->lineno;
-      copytype($$->type, $3->type);
+CompSt: { isDefiningFunc = true;
+      /*symbol stack push*/
+      SymbolNode symbolNode = newSymbolNode(NULL, NULL);
+      pushIntoSymbolStack(symbolStack, symbolNode);
+      } LC DefList StmtList RC{
+      $$=newNode("CompSt",4,$2,$3,$4,$5);
+      $$->lineno = $4->lineno;
+      copytype($$->type, $4->type);
+      }
+      | { isDefiningFunc = false; } SEMI{
+      /*add syntax*/
+      $$=newNode("SEMI",1,$2);
       }
       ;
 StmtList: Stmt StmtList{
@@ -297,16 +306,25 @@ Exp:Exp ASSIGNOP Exp{
        success = 0;
    }
    $$=newNode("Exp",3,$1,$2,$3);
-   //assert($1->type != NULL);
-   assert($3->type != NULL);
-   matchType($1->type, $3->type, true);
+   if($1->type != NULL && $3->type != NULL && !matchType($1->type, $3->type)){
+       printf("Error type 5 at Line %d: Type mismatched for assignment.\n"
+                ,yylineno);
+       success = 0;
+   }
    }
    | Exp AND Exp{$$=newNode("Exp",3,$1,$2,$3);}
    | Exp OR Exp{$$=newNode("Exp",3,$1,$2,$3);}
    | Exp RELOP Exp{$$=newNode("Exp",3,$1,$2,$3);}
    | Exp PLUS Exp{
    $$=newNode("Exp",3,$1,$2,$3);
-   $$->type = matchOperandsType($1->type, $3->type);
+   if(!matchType($1->type, $3->type)){
+       printf("Error type 7 at Line %d: Type mismatched for operands.\n"
+               ,yylineno);
+       success = 0;
+   }
+   else{
+       copytype($$->type, $1->type);
+   }
    }
    | Exp MINUS Exp{$$=newNode("Exp",3,$1,$2,$3);}
    | Exp STAR Exp{$$=newNode("Exp",3,$1,$2,$3);}
@@ -337,7 +355,6 @@ Exp:Exp ASSIGNOP Exp{
    }
    else
        matchArgsType(type, $1->id); 
-   
    }
    | Exp LB Exp RB{
    $$=newNode("Exp",4,$1,$2,$3,$4);
@@ -378,7 +395,7 @@ Exp:Exp ASSIGNOP Exp{
    }
    | ID{
    $$=newNode("Exp",1,$1);
-   Type type = haveVar($1->id);
+   Type type = getSymbol($1->id);
    if(!type){ 
        printf("Error type 1 at Line %d: Undefined variable \"%s\".\n",
        yylineno,
@@ -406,5 +423,5 @@ Args: Exp COMMA Args{
     ;
 %%
 void yyerror(const char* s){
-    fprintf(stderr, "Error type B at: Line %d: %s\n", yylineno, s);
+    fprintf(stderr, "Error type B at Line %d: %s\n", yylineno, s);
 }

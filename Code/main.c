@@ -1,7 +1,10 @@
 #include <stdio.h>
 #include <assert.h>
+#include "Type.h"
 #include "NodeTree.h"
 #include "SymbolTable.h"
+#include "TypeStack.h"
+#include "SymbolStack.h"
 
 extern void yyrestart(FILE*);
 extern void yyparse();
@@ -9,6 +12,7 @@ SymbolTable symbolTable;
 SymbolTable structSymbolTable;
 TypeStack typeStack;
 TypeStack structStack;
+SymbolStack symbolStack;
 
 int main(int argc, char** argv)
 {
@@ -23,6 +27,7 @@ int main(int argc, char** argv)
     structSymbolTable = newSymbolTable();
     typeStack = newTypeStack();
     structStack = newTypeStack();
+    symbolStack = newSymbolStack();
     yyrestart(f);
     yyparse();
     return 0;

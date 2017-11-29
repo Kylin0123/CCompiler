@@ -69,7 +69,12 @@ test:
 	./parser ../pretest2/17.txt
 	@echo 'Error type 17 at Line 3: Undefined structure "Position".'
 	./parser ../pretest2/18.txt
-	@echo 'maybe'
+	@echo 'PERFECT!'
+	./parser ../pretest2/19.txt
+	@echo 'Error type 19 at Line 8: Inconsistent declaration of function "func".'
+	@echo 'Error type 18 at Line 6: Undefined function "func" .'
+	./parser ../pretest2/20.txt
+	@echo 'PERFECT!'
 clean:
 	rm -f parser lex.yy.c syntax.tab.c syntax.tab.h syntax.output
 	rm -f $(OBJS) $(OBJS:.o=.d)

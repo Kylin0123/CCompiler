@@ -12,6 +12,7 @@
 #include <assert.h>
 #include "SymbolTable.h"
 #include "NodeTree.h"
+#include "TypeStack.h"
 
 
 extern SymbolTable symbolTable;
@@ -67,52 +68,12 @@ SymbolNode newSymbolNode(char* name, Type type){
     symbolNode->tail = NULL;
 }
 
-/*StructSymbolTable newStructSymbolTable(){
-    StructSymbolTable structSymbolTable = malloc(sizeof(struct StructSymbolTable_));
-    return structSymbolTable;
-}*/
-
-/*void insertStructSymbolTable(StructSymbolTable structSymbolTable, StructSymbolNode structSymbolNode){
-    
-}*/
-
-/*StructSymbolNode newStructSymbolNode(char* tag, Type type){
-    StructSymbolNode structSymbolNode = malloc(sizeof(struct StructSymbolNode_));
-    structSymbolNode->tag = tag;
-    //structSymbolNode->type = type;
-}*/
-
 void printFieldList(FieldList fieldList){
     if(fieldList == NULL) return;
     printf("%s:",fieldList->name);
     printType(fieldList->type);
     printFieldList(fieldList->tail);
 }
-
-/*
-void printStructSymbolNode(StructSymbolNode structSymbolNode){
-    if(structSymbolNode == NULL) return;
-    printf("%s|", structSymbolNode->tag);
-    printFieldList(structSymbolNode->structure);
-    printf("\t-->\t");
-    printStructSymbolNode(structSymbolNode->tail);
-}
-*/
-
-/*
-void printStructSymbolTable(StructSymbolTable structSymbolTable){
-    printf("---printing struct symbol table now---\n");
-    for(unsigned int i = 0; i < 0x3fff; i++){
-        StructSymbolNode structSymbolNode = structSymbolTable->bucket[i];
-        if(structSymbolNode != NULL){
-            printf("%d:  ", i);
-            printStructSymbolNode(structSymbolNode);
-            printf("\n");
-        }
-    }
-    printf("--------------- over -----------------\n");
-}
-*/
 
 FieldList newFieldList(){
     FieldList fieldList = malloc(sizeof(struct FieldList_));
@@ -181,35 +142,59 @@ void printExp(Node* node){
     }
 }
 
-Type matchType(Type t1, Type t2, bool isShowError){
-    if(t1 == NULL || t2 == NULL) 
-        return NULL;
-    if(t1->kind != t2->kind || 
-       (t1->kind == BASIC && t2->kind == BASIC
-       && strcmp(t1->basic, t2->basic)
-       )){
-        if(isShowError)
-            printf("Error type 5 at Line %d: Type mismatched for assignment.\n"
-                ,yylineno);
-        success = 0;
-        return NULL;
-    }
-    return t1;
+bool isLeftVal(Node* node){
+    assert(!strcmp(node->tag_name, "Exp"));
+    if(!strcmp(node->child->tag_name, "ID") && node->child->sibling == NULL)
+        return true;
+    else if(!strcmp(node->child->tag_name, "Exp")
+           && !strcmp(node->child->sibling->tag_name, "DOT")
+           && !strcmp(node->child->sibling->sibling->tag_name, "ID"))
+        return true;
+    else if(!strcmp(node->child->tag_name, "Exp")
+           && !strcmp(node->child->sibling->tag_name, "LB")
+           && !strcmp(node->child->sibling->sibling->tag_name, "Exp")
+           && !strcmp(node->child->sibling->sibling->sibling->tag_name, "RB"))
+        return true;
+    return false;
 }
 
-Type matchOperandsType(Type t1, Type t2){
+bool matchType(Type t1, Type t2){
     if(t1 == NULL || t2 == NULL) 
-        return NULL;
-    if(t1->kind != t2->kind || 
-       (t1->kind == BASIC && t2->kind == BASIC
-       && strcmp(t1->basic, t2->basic)
-       )){
-        printf("Error type 7 at Line %d: Type mismatched for operands.\n"
-               ,yylineno);
-        success = 0;
-        return NULL;
+        return false;
+    if(t1->kind != t2->kind)
+        return false;
+    switch(t1->kind){
+    case BASIC:{
+        return !strcmp(t1->basic, t2->basic);
     }
-    return t1;
+    case FUNCTION:{
+        if(t1->function.paraNum != t2->function.paraNum)
+            return false;
+        bool flag = matchType(t1->function.retType, t2->function.retType);
+        if(!flag)
+            return false;
+        for(int i = 0; i < t1->function.paraNum; i++){
+            flag = flag && matchType(t1->function.para[i], t2->function.para[i]);
+        }
+        return flag;
+    }
+    case STRUCTURE:{
+        bool flag = true;
+        FieldList head1 = t1->structure.list;
+        FieldList head2 = t2->structure.list;
+        for(; head1 != NULL && head2 != NULL; head1=head1->tail,head2=head2->tail){
+            flag = flag && matchType(head1->type, head2->type);
+        }
+        if(head1 != NULL || head2 != NULL)
+            flag = false;
+        return flag;
+    }
+    case ARRAY:{
+        return matchType(t1->array.elem, t2->array.elem);
+    }
+    default:
+        assert(0);
+    }
 }
 
 Type matchReturnType(Type t1, Type t2, int lineno){
@@ -239,7 +224,7 @@ Type matchArgsType(Type funcType, char* funcName){
     for(int i = 0; i < paraNum; i++){
         Type t1 = funcType->function.para[i];
         Type t2 = typeStack->stack[paraNum - i - 1];
-        if(!matchType(t1, t2, false))
+        if(!matchType(t1, t2))
             error = true;
     }
     clearTypeStack(typeStack);
@@ -289,18 +274,28 @@ void printSymbolTable(SymbolTable symbolTable){
     printf("------------ over--------------\n");
 }
 
+Type getSymbol(char* name){
+    unsigned int hash_num = hash_pjw(name);
+    SymbolNode head = symbolTable->bucket[hash_num];
+    for(; head != NULL; head = head->tail){
+        if(!strcmp(head->name, name))
+            return head->type;
+    }
+    return NULL;
+}
+
 bool haveSymbol(char* name, Type type){
     unsigned int hash_num = hash_pjw(name);
     SymbolNode head = symbolTable->bucket[hash_num];
     for(; head != NULL; head = head->tail){
-        if(!strcmp(name, head->name) && matchType(head->type, type, false)){
+        if(!strcmp(name, head->name) && matchType(head->type, type)){
             switch(type->kind){
                 case BASIC:{
                     printf("Error type 3 at Line %d: Redefined variable \"%s\".\n",
                           yylineno,
                           name);
                     break;
-                }
+                }/*
                 case ARRAY:{
                     break;
                 }
@@ -309,7 +304,7 @@ bool haveSymbol(char* name, Type type){
                 }
                 case STRUCTURE:{
                     break;
-                }
+                }*/
                 default:assert(0);
             }
             success = 0;
@@ -325,57 +320,6 @@ void newSymbol(char* name, Type type){
     insert(symbolTable, symbolNode);
 }
 
-/*
-void newVar(int num, ...){
-    va_list valist;
-    va_start(valist, num);
-    if(num == 2){
-        Node* specifierNode = va_arg(valist, Node*);
-        Node* decNode = va_arg(valist, Node*);
-        
-        if(decNode == NULL)
-            return;
-        char* varName = decNode->child->id;
-        
-        if(haveVar(varName)){
-            printf("Error type 3 at Line %d: Redefined variable \"%s\".\n",
-                yylineno,
-                varName
-                  );
-            success = 0;
-            return;
-        }
-
-        Type type = newType();
-        type->kind = BASIC;
-
-        assert(!strcmp(specifierNode->id, "float")
-              || !strcmp(specifierNode->id, "int"));
-
-        copystr(type->basic, specifierNode->id);
-        
-        SymbolNode symbolNode = newSymbolNode(varName, type);
-        
-        if(decNode->child != NULL);
-        if(decNode->child->sibling != NULL)
-        if(decNode->child->sibling->sibling !=NULL){
-            newVar(2, specifierNode, decNode->child->sibling->sibling);
-        }
-        insert(symbolTable, symbolNode);
-    }
-}
-*/
-
-Type haveVar(char* varName){
-    unsigned int hash_num = hash_pjw(varName);
-    SymbolNode head = symbolTable->bucket[hash_num];
-    for(; head != NULL; head = head->tail){
-        if(!strcmp(head->name, varName))
-            return head->type;
-    }
-    return NULL;
-}
-
 bool getStructVarOffset(char* name, Type type, int* offset){
     assert(type->kind == STRUCTURE);
     FieldList head = type->structure.list;
@@ -388,61 +332,6 @@ bool getStructVarOffset(char* name, Type type, int* offset){
     }
     return false;
 }
-
-void fillBackArray(Type arrayT, Type type){
-    if(arrayT->kind == ARRAY && arrayT->array.elem->kind != ARRAY){
-        copytype(arrayT->array.elem, type);
-        return;
-    }
-    fillBackArray(arrayT->array.elem, type);
-}
-
-/*
-void newArray(int num, ...){
-    va_list valist;
-    va_start(valist, num);
-    if(num == 2){
-        Node* specifierNode = va_arg(valist, Node*);
-        Node* decNode = va_arg(valist, Node*);
-        
-        if(decNode == NULL)
-            return;
-        char* varName = decNode->child->id;
-
-        assert(decNode->child->child->type->kind == ARRAY);
-        
-        if(haveVar(varName)){
-            //TODO: maybe function or array
-            printf("Error type 3 at Line %d: Redefined variable \"%s\".\n",
-                yylineno,
-                varName
-                  );
-            success = 0;
-            return;
-        }
-
-        Type type = newType();
-        type->kind = BASIC;
-
-        assert(!strcmp(specifierNode->id, "float")
-              || !strcmp(specifierNode->id, "int"));
-
-        copystr(type->basic, specifierNode->id);
-
-        fillBackArray(decNode->child->child->type, type);
-        
-        SymbolNode symbolNode = newSymbolNode(varName, decNode->child->child->type);
-        
-        if(decNode->child != NULL);
-        if(decNode->child->sibling != NULL)
-        if(decNode->child->sibling->sibling !=NULL){
-            newArray(2, specifierNode, decNode->child->sibling->sibling);
-        }
-        insert(symbolTable, symbolNode);
-  
-    }
-}
-*/
 
 void newParam(int num, ...){
     va_list valist;
@@ -460,24 +349,6 @@ void newArg(Type type){
     addTypeStack(typeStack, type);
 }
 
-/*
-void newStruct(int num, ...){
-    va_list valist;
-    va_start(valist, num);
-    if(num == 2){
-        Node* specifierNode = va_arg(valist, Node*);
-        Node* decNode = va_arg(valist, Node*);
-        
-        Type type;
-        copytype(type, specifierNode->type); 
-        assert(type != NULL);
-        
-        SymbolNode symbolNode = newSymbolNode(decNode->id, type);
-        insert(symbolTable, symbolNode);
-    }
-}
-*/
-
 Type getTagType(char* tag){
     unsigned int hash_num = hash_pjw(tag);
     SymbolNode head = structSymbolTable->bucket[hash_num];
@@ -488,39 +359,14 @@ Type getTagType(char* tag){
     return NULL;
 }
 
-/*
-bool isArray(Type type){
-    return type->kind == ARRAY;
-}
-*/
+void newUndefinedFunc(char* name, Type retType, int lineno){
 
-void newFunc(int num, ...){
-    va_list valist;
-    va_start(valist, num);
-    if(num == 2){
-        Node* specifierNode = va_arg(valist, Node*);
-        assert(strcmp(specifierNode->tag_name,"Specifier")==0);
-
-        Node* decNode = va_arg(valist, Node*);
-        char* funcName = decNode->id;
-
-        if(haveVar(funcName)){
-            printf("Error type 4 at Line %d: Redefined function \"%s\".\n",
-                decNode->lineno,
-                funcName
-                  );
-            success = 0;
-            return;
-        }
-  
         Type type = newType();
         type->kind = FUNCTION;
 
-        Type type2 = newType();
-        assert(specifierNode->type != NULL);
-        memcpy(type2, specifierNode->type, sizeof(struct Type_));
-        
-        type->function.retType = type2;
+        type->function.isDefined = false;
+        type->function.lineno = lineno;
+        type->function.retType = retType;
         type->function.paraNum = typeStack->num;
         int len = typeStack->num * sizeof(struct Type_);
         type->function.para = malloc(len);
@@ -528,9 +374,73 @@ void newFunc(int num, ...){
         clearTypeStack(typeStack);
         assert(typeStack->num == 0);
 
-        SymbolNode symbolNode = newSymbolNode(decNode->id, type);
-        insert(symbolTable, symbolNode);
-    }
+        Type tmpType = haveFunc(name);
+
+        if(tmpType == NULL){
+            SymbolNode symbolNode = newSymbolNode(name, type);
+            insert(symbolTable, symbolNode);
+        }
+        else if(tmpType->function.isDefined == false){
+            if(matchType(tmpType, type) == false){
+                printf("Error type 19 at Line %d: Inconsistent declaration of function \"%s\".\n",
+                      yylineno,
+                      name);
+                success = 0;
+                return;
+            }
+            SymbolNode symbolNode = newSymbolNode(name, type);
+            insert(symbolTable, symbolNode);
+        }
+        else if(tmpType->function.isDefined == true){
+            printf("Error type 4 at Line %d: Redefined function \"%s\".\n",
+                lineno,
+                name
+                  );
+            success = 0;
+            return;
+        }
+}
+
+void newDefinedFunc(char* name, Type retType, int lineno){
+
+        Type type = newType();
+        type->kind = FUNCTION;
+
+        type->function.isDefined = true;
+        type->function.retType = retType;
+        type->function.paraNum = typeStack->num;
+        int len = typeStack->num * sizeof(struct Type_);
+        type->function.para = malloc(len);
+        memcpy(type->function.para, &typeStack->stack[0], len);
+        clearTypeStack(typeStack);
+        assert(typeStack->num == 0);
+
+        Type tmpType = haveFunc(name);
+
+        if(tmpType == NULL){
+            SymbolNode symbolNode = newSymbolNode(name, type);
+            insert(symbolTable, symbolNode);
+        }
+        else if(tmpType->function.isDefined == false){
+            if(matchType(tmpType, type) == false){
+                printf("Error type 19 at Line %d: Inconsistent declaration of function \"%s\".\n",
+                      yylineno,
+                      name);
+                success = 0;
+                return;
+            }
+            tmpType->function.isDefined = true;
+            SymbolNode symbolNode = newSymbolNode(name, type);
+            insert(symbolTable, symbolNode);
+        }
+        else if(tmpType->function.isDefined == true){
+            printf("Error type 4 at Line %d: Redefined function \"%s\".\n",
+                lineno,
+                name
+                  );
+            success = 0;
+            return;
+        }
 }
 
 Type haveFunc(char* funcName){
@@ -549,4 +459,21 @@ Type haveFunc(char* funcName){
         }
     }
     return NULL;
+}
+
+void checkUndefinedFuncBeforeExit(){
+    for(unsigned int i = 0; i < 0x3fff; i++){
+        SymbolNode symbolNode = symbolTable->bucket[i];
+        if(symbolNode != NULL){
+            for(; symbolNode != NULL; symbolNode = symbolNode->tail){
+                if(symbolNode->type->kind == FUNCTION
+                   && symbolNode->type->function.isDefined == false){
+                        printf(
+                        "Error type 18 at Line %d: Undefined function \"%s\" .\n",
+                        symbolNode->type->function.lineno,
+                        symbolNode->name);
+                   }
+            }
+        }
+    }
 }

@@ -11,7 +11,7 @@
 #define MAX_TYPE_NAME 32
 #define MAX_VALUE_LEN 32
 
-#include "SymbolTable.h"
+#include "Type.h"
 
 /*Node*/
 typedef struct Node{
@@ -29,21 +29,5 @@ typedef struct Node{
 
 Node* newNode(char* name, int num, ...);
 void printNodeTree(Node* root, int blankNum);
-
-/*TypeStack*/
-typedef struct TypeStack_* TypeStack;
-
-struct TypeStack_{
-    int num;
-    Type stack[100];
-};
-
-TypeStack newTypeStack();
-void addTypeStack(TypeStack typeStack, Type type);
-Type getTypeStackTop(TypeStack typeStack);
-void popTypeStack(TypeStack typeStack);
-void clearTypeStack(TypeStack typeStack);
-
-bool isLeftVal(Node* node);
 
 #endif
