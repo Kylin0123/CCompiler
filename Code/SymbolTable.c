@@ -216,6 +216,11 @@ bool isLeftVal(Node* node){
     return false;
 }
 
+Type getFuncRetType(Type functionType){
+    assert(functionType->kind == FUNCTION);
+    return functionType->function.retType;
+}
+
 bool matchType(Type t1, Type t2){
     if(t1 == NULL || t2 == NULL) 
         return false;
@@ -223,18 +228,34 @@ bool matchType(Type t1, Type t2){
         return false;
     switch(t1->kind){
     case BASIC:{
-        return !strcmp(t1->basic, t2->basic);
+        if(t2->kind == BASIC){
+            return !strcmp(t1->basic, t2->basic);
+        }
+        else if(t2->kind == FUNCTION){
+            printf("here!\n");
+            return matchType(t1, getFuncRetType(t2));
+        }
     }
     case FUNCTION:{
-        if(t1->function.paraNum != t2->function.paraNum)
+        if(t2->kind == FUNCTION){
+            if(t1->function.paraNum != t2->function.paraNum)
             return false;
-        bool flag = matchType(t1->function.retType, t2->function.retType);
-        if(!flag)
+            bool flag = matchType(t1->function.retType, t2->function.retType);
+            if(!flag)
             return false;
-        for(int i = 0; i < t1->function.paraNum; i++){
-            flag = flag && matchType(t1->function.para[i], t2->function.para[i]);
+            for(int i = 0; i < t1->function.paraNum; i++){
+                flag = flag && matchType(t1->function.para[i], t2->function.para[i]);
+            }
+            return flag;
         }
-        return flag;
+        else if(t2->kind == BASIC){
+            Type retType = getFuncRetType(t1);
+            return matchType(retType, t2);
+        }
+        else{
+            assert(0);
+            return false;
+        }
     }
     case STRUCTURE:{
         bool flag = true;
@@ -450,13 +471,13 @@ void newUndefinedFunc(char* name, Type retType, int lineno){
             insertIntoSymbolTable(symbolTable, symbolNode);
         }
         else if(tmpType->function.isDefined == false){
-            if(matchType(tmpType, type) == false){
+            /*if(matchType(tmpType, type) == false){
                 printf("Error type 19 at Line %d: Inconsistent declaration of function \"%s\".\n",
                       yylineno,
                       name);
                 success = 0;
                 return;
-            }
+            }*/
             SymbolNode symbolNode = newSymbolNode(name, type);
             insertIntoSymbolTable(symbolTable, symbolNode);
         }
@@ -476,7 +497,7 @@ void newDefinedFunc(char* name, Type retType, int lineno){
         type->kind = FUNCTION;
 
         type->function.isDefined = true;
-        type->function.retType = retType;
+        copytype(type->function.retType, retType);
         type->function.paraNum = getLengthOfSymbolStack(paraStack);
         int len = type->function.paraNum * sizeof(struct Type_);
         type->function.para = malloc(len);
@@ -493,16 +514,16 @@ void newDefinedFunc(char* name, Type retType, int lineno){
             insertIntoSymbolTable(symbolTable, symbolNode);
         }
         else if(tmpType->function.isDefined == false){
-            if(matchType(tmpType, type) == false){
+            /*if(matchType(tmpType, type) == false){
                 printf("Error type 19 at Line %d: Inconsistent declaration of function \"%s\".\n",
                       yylineno,
                       name);
                 success = 0;
                 return;
-            }
+            }*/
             tmpType->function.isDefined = true;
-            SymbolNode symbolNode = newSymbolNode(name, type);
-            insertIntoSymbolTable(symbolTable, symbolNode);
+            /*SymbolNode symbolNode = newSymbolNode(name, tmpType);
+            insertIntoSymbolTable(symbolTable, symbolNode);*/
         }
         else if(tmpType->function.isDefined == true){
             printf("Error type 4 at Line %d: Redefined function \"%s\".\n",

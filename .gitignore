@@ -58,4 +58,7 @@ parser
 syntax.output
 syntax.tab.c
 syntax.tab.h
+*.ir
+.ycm_extra_conf.py
+Code/*.txt
 

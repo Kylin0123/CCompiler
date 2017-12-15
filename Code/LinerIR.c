@@ -50,6 +50,7 @@ InterCodes newInterCodes(){
 }
 
 InterCodes genLabelCode(int label_no){
+    assert(label_no > 0);
     InterCodes code_label = newInterCodes();
     code_label->code = newInterCode();
     code_label->code->kind = LABEL;
@@ -106,12 +107,14 @@ void printInterCodes(InterCodes interCodes){
                     printf("\n");
                     break;
                 }
-            case ADD:
+            case PLUS_:
                 {
-                    break;
-                }
-            case SUB:
-                {
+                    printOperand(interCode->binop.result);
+                    printf(" := ");
+                    printOperand(interCode->binop.op1);
+                    printf(" + ");
+                    printOperand(interCode->binop.op2);
+                    printf("\n");
                     break;
                 }
             case MINUS_:
@@ -126,6 +129,12 @@ void printInterCodes(InterCodes interCodes){
                 }
             case MUL:
                 {
+                    printOperand(interCode->binop.result);
+                    printf(" := ");
+                    printOperand(interCode->binop.op1);
+                    printf(" * ");
+                    printOperand(interCode->binop.op2);
+                    printf("\n");
                     break;
                 }
             case DIV_:
@@ -145,6 +154,10 @@ void printInterCodes(InterCodes interCodes){
                 }
             case FUNCCALL:
                 {
+                    printOperand(interCode->funccall.left);
+                    printf(" := CALL ");
+                    printOperand(interCode->funccall.right);
+                    printf("\n");
                     break;
                 }
             case FUNCCALLREAD:
@@ -167,6 +180,9 @@ void printInterCodes(InterCodes interCodes){
                 }
             case ARG:
                 {
+                    printf("ARG ");
+                    printOperand(interCode->arg.op);
+                    printf("\n");
                     break;
                 }
             case LABEL:
@@ -180,6 +196,7 @@ void printInterCodes(InterCodes interCodes){
                     printOperand(interCode->cond.v1);
                     printf(" %s ", interCode->cond.op);
                     printOperand(interCode->cond.v2);
+                    assert(interCode->cond.label_no > 0);
                     printf(" GOTO label%d\n", interCode->cond.label_no);
 
                     break;
@@ -198,6 +215,9 @@ void printInterCodes(InterCodes interCodes){
                 }
             case PARAM:
                 {
+                    printf("PARAM ");
+                    printOperand(interCode->param.op);
+                    printf("\n");
                     break;
                 }
             case DEC:

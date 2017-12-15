@@ -50,6 +50,7 @@ bool isLeftVal(Node* node);
 void newSymbol(char* name, Type type);
 Type getSymbol(char* name);
 
+Type getFuncRetType(Type functionType);
 void newUndefinedFunc(char* name, Type retType, int lineno);
 void newDefinedFunc(char* name, Type retType, int lineno);
 Type haveFunc(char* funcName);

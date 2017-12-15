@@ -14,7 +14,8 @@ int success = 1;   //Record the result of parsing.
 extern SymbolTable symbolTable;   //Record symbols by the hash table.
 extern SymbolTable structSymbolTable;   //The node in the hash table.
 extern TypeStack typeStack;   //Record the values' type when calling function.
-extern SymbolStack paraStack;  //Record the params' symbol when defining function.
+extern SymbolStack paraStack;  //Record the params' symbol when defining function.  (undefined)
+extern SymbolStack paraStackdefined;  //Record the params' symbol when defining function.  {defined}
 extern TypeStack structStack;  //Record the struct levels and the current struct.
 extern SymbolStack symbolStack;  //Record the symbol stack for action scope.
 Type t;   //Pass the current type value when defining variables. It's important.
@@ -172,6 +173,7 @@ VarDec: ID{
 FunDec: ID LP VarList RP{
       $$=newNode("FunDec",4,$1,$2,$3,$4);
       strcpy($$->id, $1->id);
+      newUndefinedFunc($1->id, t, $1->lineno);
       }
       | ID LP RP{
       $$=newNode("FunDec",3,$1,$2,$3);
@@ -188,6 +190,7 @@ VarList: ParamDec COMMA VarList{
 ParamDec: Specifier VarDec{
         $$=newNode("ParamDec",2,$1,$2); 
         newParam(2,$1,$2);
+        newSymbol($2->id, $1->type);
         }
         ;
 CompSt: {
@@ -382,6 +385,7 @@ Exp:Exp ASSIGNOP Exp{
    }
    else
        matchArgsType(type, $1->id); 
+   copytype($$->type, getFuncRetType(type));
    }
    | ID LP RP{
    $$=newNode("Exp",3,$1,$2,$3);
