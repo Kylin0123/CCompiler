@@ -20,7 +20,7 @@ extern int success;
 
 Node* newNode(char* name, int num, ...){
     assert(name != NULL);
-    Node* retNode = malloc(sizeof(Node));
+    Node* retNode = (Node*)malloc(sizeof(Node));
     strcpy(retNode->tag_name, name);
 
     va_list valist;
@@ -31,6 +31,9 @@ Node* newNode(char* name, int num, ...){
         retNode->child = retNode->sibling = NULL;
 
         if(!strcmp(retNode->tag_name, "ID")){
+            strcpy(retNode->id, yytext);
+        }
+        else if(!strcmp(retNode->tag_name, "RELOP")){
             strcpy(retNode->id, yytext);
         }
         else if(!strcmp(retNode->tag_name, "TYPE")){

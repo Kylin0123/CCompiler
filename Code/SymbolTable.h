@@ -26,9 +26,10 @@ struct SymbolTable_{
 };
 
 SymbolTable newSymbolTable();
+Type getSymbolType(SymbolTable symbolTable, char* id);
 bool haveSymbolNode(SymbolTable symbolTable, SymbolNode symbolNode);
-void insert(SymbolTable symbolTable, SymbolNode insertNode);
-void delete(SymbolTable symbolTable, SymbolNode deleteNode);
+void insertIntoSymbolTable(SymbolTable symbolTable, SymbolNode insertNode);
+void deleteFromSymbolTable(SymbolTable symbolTable, SymbolNode deleteNode);
 void printSymbolTable(SymbolTable symboltable);
 
 SymbolNode newSymbolNode(char* name, Type type);

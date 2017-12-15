@@ -10,14 +10,14 @@
 #include "string.h"
 
 TypeStack newTypeStack(){
-    TypeStack typeStack = malloc(sizeof(struct TypeStack_));
+    TypeStack typeStack = (TypeStack)malloc(sizeof(struct TypeStack_));
     typeStack->num = 0;
     return typeStack;
 }
 
 void addTypeStack(TypeStack typeStack, Type type){
     int size = sizeof(struct Type_);
-    Type newType = malloc(sizeof(struct Type_));
+    Type newType = (Type)malloc(sizeof(struct Type_));
     memcpy(newType, type, size);
     typeStack->stack[typeStack->num] = newType;
     typeStack->num++;

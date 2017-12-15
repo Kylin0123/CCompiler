@@ -11,7 +11,7 @@
 #include "SymbolStack.h"
 
 SymbolStack newSymbolStack(){
-    return malloc(sizeof(struct SymbolStack_));
+    return (SymbolStack)malloc(sizeof(struct SymbolStack_));
 }
 
 void pushIntoSymbolStack(SymbolStack symbolStack, SymbolNode symbolNode){

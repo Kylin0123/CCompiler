@@ -13,10 +13,14 @@
 
 #include "Type.h"
 
+typedef struct InterCodes_* InterCodes;
+struct InterCodes_;
+
 /*Node*/
 typedef struct Node{
     char tag_name[MAX_TYPE_NAME];
     Type type;
+    InterCodes code;
     int lineno;
     struct Node* child;
     struct Node* sibling;

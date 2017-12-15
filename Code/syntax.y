@@ -6,6 +6,7 @@
 #include "SymbolTable.h"
 #include "TypeStack.h"
 #include "SymbolStack.h"
+#include "translate.h"
 
 int yylex();
 void yyerror(const char* s);
@@ -51,6 +52,7 @@ Program: ExtDefList{
            exit(0);
        }
        assert($$ != NULL);
+       parse2GenCode($$);
        //printNodeTree($$, 0);
        //printSymbolTable(structSymbolTable);
        //printSymbolTable(symbolTable);
@@ -119,7 +121,7 @@ StructSpecifier: STRUCT OptTag LC {
                        success = 0;
                    }
                    else
-                       insert(structSymbolTable, structSymbolNode);
+                       insertIntoSymbolTable(structSymbolTable, structSymbolNode);
                }
                else{
                    /*not have struct name*/
@@ -205,7 +207,7 @@ CompSt: {
         while(s != NULL){
             SymbolNode deleteNode = s;
             s = s->stack_next;
-            delete(symbolTable, deleteNode);
+            deleteFromSymbolTable(symbolTable, deleteNode);
         }
       }
       }

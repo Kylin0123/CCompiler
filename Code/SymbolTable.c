@@ -14,6 +14,7 @@
 #include "NodeTree.h"
 #include "TypeStack.h"
 #include "SymbolStack.h"
+#include "LinerIR.h"
 
 extern SymbolTable symbolTable;
 extern SymbolTable structSymbolTable;
@@ -30,19 +31,43 @@ unsigned int hash_pjw(char* name){
     unsigned int val = 0, i;
     for (; *name; ++name) {
         val = (val << 2) + *name;
-        if (i = val & ~0x3fff)
+        if ((i = val) & ~0x3fff)
             val = (val ^ (i >> 12)) & 0x3fff;
     }
     return val;
 }
 
 SymbolTable newSymbolTable(){
-    SymbolTable symbolTable = malloc(sizeof(struct SymbolTable_));
+    SymbolTable symbolTable = (SymbolTable)malloc(sizeof(struct SymbolTable_));
     memset((void*)symbolTable, 0, sizeof(struct SymbolTable_));
+
+    Type readFuncType = newType(); 
+    readFuncType->kind = FUNCTION;
+    readFuncType->function.isDefined = true;
+    readFuncType->function.lineno = -1;
+    Type intType = newType();
+    intType->kind = BASIC;
+    copystr(intType->basic, "int");
+    copytype(readFuncType->function.retType, intType);
+
+    Type writeFuncType = newType(); 
+    writeFuncType->kind = FUNCTION;
+    writeFuncType->function.isDefined = true;
+    writeFuncType->function.lineno = -1;
+    writeFuncType->function.paraNum = 1;
+    writeFuncType->function.para = malloc(sizeof(struct Type_));
+    copytype(writeFuncType->function.para[0], intType);
+
+    SymbolNode readSymbolNode = newSymbolNode("read", readFuncType);
+    SymbolNode writeSymbolNode = newSymbolNode("write", writeFuncType);
+
+    insertIntoSymbolTable(symbolTable, readSymbolNode);
+    insertIntoSymbolTable(symbolTable, writeSymbolNode);
+
     return symbolTable;
 }
 
-void insert(SymbolTable symbolTable, SymbolNode insertNode){
+void insertIntoSymbolTable(SymbolTable symbolTable, SymbolNode insertNode){
     assert(symbolTable != NULL);
     char* name = insertNode->name;
     unsigned int hash_num = hash_pjw(name);
@@ -51,7 +76,7 @@ void insert(SymbolTable symbolTable, SymbolNode insertNode){
     insertNode->tail = symbolNode;
 }
 
-void delete(SymbolTable symbolTable, SymbolNode deleteNode){
+void deleteFromSymbolTable(SymbolTable symbolTable, SymbolNode deleteNode){
     assert(symbolTable != NULL);
     assert(deleteNode != NULL);
     char* name = deleteNode->name;
@@ -69,6 +94,18 @@ void delete(SymbolTable symbolTable, SymbolNode deleteNode){
     }
 }
 
+Type getSymbolType(SymbolTable symbolTable, char* id){
+    assert(symbolTable != NULL);
+    unsigned int hash_num = hash_pjw(id);
+    SymbolNode head = symbolTable->bucket[hash_num];
+    for(; head != NULL; head = head->tail){
+        if(!strcmp(head->name, id)){
+            return head->type;
+        }
+    }
+    return NULL;
+}
+
 bool haveSymbolNode(SymbolTable symbolTable, SymbolNode symbolNode){
     assert(symbolTable != NULL);
     unsigned int hash_num = hash_pjw(symbolNode->name);
@@ -82,10 +119,11 @@ bool haveSymbolNode(SymbolTable symbolTable, SymbolNode symbolNode){
 }
 
 SymbolNode newSymbolNode(char* name, Type type){
-    SymbolNode symbolNode = malloc(sizeof(struct SymbolNode_));
+    SymbolNode symbolNode = (SymbolNode)malloc(sizeof(struct SymbolNode_));
     symbolNode->name = name;
     symbolNode->type = type;
     symbolNode->tail = NULL;
+    return symbolNode;
 }
 
 void printFieldList(FieldList fieldList){
@@ -96,7 +134,7 @@ void printFieldList(FieldList fieldList){
 }
 
 FieldList newFieldList(){
-    FieldList fieldList = malloc(sizeof(struct FieldList_));
+    FieldList fieldList = (FieldList)malloc(sizeof(struct FieldList_));
     return fieldList;
 }
 
@@ -115,7 +153,7 @@ void addFieldList(FieldList head, FieldList fieldList){
 }
 
 Type newType(){
-    Type type = malloc(sizeof(struct Type_));
+    Type type = (Type)malloc(sizeof(struct Type_));
     return type;
 }
 
@@ -342,7 +380,7 @@ void newSymbol(char* name, Type type){
         currentScope->stack_next = symbolNode;
         symbolNode->stack_next = head;
     }
-    insert(symbolTable, symbolNode);
+    insertIntoSymbolTable(symbolTable, symbolNode);
 }
 
 bool getStructVarOffset(char* name, Type type, int* retOffset, Type* retType){
@@ -351,6 +389,7 @@ bool getStructVarOffset(char* name, Type type, int* retOffset, Type* retType){
     for(; head != NULL; head = head->tail){
         if(!strcmp(head->name, name)){
             //TODO: should set *offset
+            retOffset = 0;
             *retType = head->type;
             //assert(0);
             return true;
@@ -365,7 +404,7 @@ void newParam(int num, ...){
     if(num == 2){
         Node* specifierNode = va_arg(valist, Node*);
         Node* decNode = va_arg(valist, Node*);
-        Type type;
+        Type type = NULL;
         copytype(type, specifierNode->type);
         SymbolNode symbolNode = newSymbolNode(decNode->id, type);
         
@@ -408,7 +447,7 @@ void newUndefinedFunc(char* name, Type retType, int lineno){
 
         if(tmpType == NULL){
             SymbolNode symbolNode = newSymbolNode(name, type);
-            insert(symbolTable, symbolNode);
+            insertIntoSymbolTable(symbolTable, symbolNode);
         }
         else if(tmpType->function.isDefined == false){
             if(matchType(tmpType, type) == false){
@@ -419,7 +458,7 @@ void newUndefinedFunc(char* name, Type retType, int lineno){
                 return;
             }
             SymbolNode symbolNode = newSymbolNode(name, type);
-            insert(symbolTable, symbolNode);
+            insertIntoSymbolTable(symbolTable, symbolNode);
         }
         else if(tmpType->function.isDefined == true){
             printf("Error type 4 at Line %d: Redefined function \"%s\".\n",
@@ -451,7 +490,7 @@ void newDefinedFunc(char* name, Type retType, int lineno){
 
         if(tmpType == NULL){
             SymbolNode symbolNode = newSymbolNode(name, type);
-            insert(symbolTable, symbolNode);
+            insertIntoSymbolTable(symbolTable, symbolNode);
         }
         else if(tmpType->function.isDefined == false){
             if(matchType(tmpType, type) == false){
@@ -463,7 +502,7 @@ void newDefinedFunc(char* name, Type retType, int lineno){
             }
             tmpType->function.isDefined = true;
             SymbolNode symbolNode = newSymbolNode(name, type);
-            insert(symbolTable, symbolNode);
+            insertIntoSymbolTable(symbolTable, symbolNode);
         }
         else if(tmpType->function.isDefined == true){
             printf("Error type 4 at Line %d: Redefined function \"%s\".\n",

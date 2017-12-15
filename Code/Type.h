@@ -45,7 +45,7 @@ struct FieldList_{
 #define copystr(dst, src)\
 do{\
    size_t len = strlen(src);\
-   dst = malloc(len);\
+   dst = (char*)malloc(len);\
    strcpy(dst, src);\
   }while(0)
 
