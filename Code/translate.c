@@ -152,6 +152,9 @@ Operand lookup(char* id){
         operand->kind = STRING;
         operand->str = id;
     }
+    else if(type->kind == STRUCTURE){
+        assert(0);
+    }
     else{
         assert(0); //please implement me
     }
@@ -293,14 +296,24 @@ Node* parse_Tag(Node* node){
 
 Node* parse_VarDec(Node* node){
     MATCH1(ID){
-        Operand op = lookup(node->child->id);
-        InterCodes paramCode = newInterCodes();
-        paramCode->code = newInterCode();
-        paramCode->code->kind = PARAM;
-        paramCode->code->param.op = op;
+        Type t = getSymbolType(symbolTable, node->child->id);
+        if(t->kind == STRUCTURE){
+            assert(0);
+        }
+        else if(t->kind == ARRAY){
+            assert(0);
+        }
+        else{
+            /*maybe parameter or just common variable declaration.*/
+            Operand op = lookup(node->child->id);
+            InterCodes paramCode = newInterCodes();
+            paramCode->code = newInterCode();
+            paramCode->code->kind = PARAM;
+            paramCode->code->param.op = op;
 
-        node->code = paramCode;
-        return node;
+            node->code = paramCode;
+            return node;
+        }
     }
     MATCH4(VarDec, LB, INT, RB){
         parse_VarDec(node->child);

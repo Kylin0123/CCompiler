@@ -19,6 +19,8 @@ extern SymbolStack paraStackdefined;  //Record the params' symbol when defining 
 extern TypeStack structStack;  //Record the struct levels and the current struct.
 extern SymbolStack symbolStack;  //Record the symbol stack for action scope.
 Type t;   //Pass the current type value when defining variables. It's important.
+Type retType;  //pass the return type of function. It's important.
+bool isParam;  //is now parsing parameters?
 
 %}
 %locations
@@ -49,6 +51,7 @@ Type t;   //Pass the current type value when defining variables. It's important.
 Program: ExtDefList{
        $$=newNode("Program",1,$1);
        checkUndefinedFuncBeforeExit();
+       //printSymbolTable(symbolTable);
        if(!success) {
            exit(0);
        }
@@ -56,7 +59,6 @@ Program: ExtDefList{
        parse2GenCode($$);
        //printNodeTree($$, 0);
        //printSymbolTable(structSymbolTable);
-       //printSymbolTable(symbolTable);
        }
        ;
 ExtDefList: ExtDef ExtDefList {
@@ -94,10 +96,16 @@ ExtDecList: VarDec{
 Specifier: TYPE {
          $$=newNode("Specifier",1,$1);
          copytype(t, $1->type);
+         if(!isParam){
+            copytype(retType, $1->type);
+         }
          }
          | StructSpecifier{
          $$=newNode("Specifier",1,$1);
          copytype(t, $1->type);
+         if(!isParam){
+            copytype(retType, $1->type);
+         }
          }
          ;
 StructSpecifier: STRUCT OptTag LC {
@@ -173,7 +181,7 @@ VarDec: ID{
 FunDec: ID LP VarList RP{
       $$=newNode("FunDec",4,$1,$2,$3,$4);
       strcpy($$->id, $1->id);
-      newUndefinedFunc($1->id, t, $1->lineno);
+      newUndefinedFunc($1->id, retType, $1->lineno);
       }
       | ID LP RP{
       $$=newNode("FunDec",3,$1,$2,$3);
@@ -187,10 +195,11 @@ VarList: ParamDec COMMA VarList{
        $$=newNode("VarList",1,$1);
        }
        ;
-ParamDec: Specifier VarDec{
-        $$=newNode("ParamDec",2,$1,$2); 
-        newParam(2,$1,$2);
-        newSymbol($2->id, $1->type);
+ParamDec: { isParam = true; } Specifier VarDec{
+        $$=newNode("ParamDec",2,$2,$3); 
+        newParam(2,$2,$3);
+        newSymbol($3->id, $2->type);
+        isParam = false;
         }
         ;
 CompSt: {
@@ -316,6 +325,8 @@ Exp:Exp ASSIGNOP Exp{
    }
    $$=newNode("Exp",3,$1,$2,$3);
    if($1->type != NULL && $3->type != NULL && !matchType($1->type, $3->type)){
+       printType($1->type);
+       printType($3->type);
        printf("Error type 5 at Line %d: Type mismatched for assignment.\n"
                 ,yylineno);
        success = 0;
