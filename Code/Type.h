@@ -8,6 +8,9 @@
 #ifndef _TYPE_H
 #define _TYPE_H
 
+#include <assert.h>
+#include <string.h>
+
 #define bool int
 #define true 1
 #define false 0
@@ -41,7 +44,6 @@ struct FieldList_{
     Type type; // 域的类型
     FieldList tail; // 下一个域
 };
-
 #define copystr(dst, src)\
 do{\
    size_t len = strlen(src);\

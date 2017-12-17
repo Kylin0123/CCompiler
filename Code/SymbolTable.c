@@ -94,6 +94,48 @@ void deleteFromSymbolTable(SymbolTable symbolTable, SymbolNode deleteNode){
     }
 }
 
+int getTypeSize(Type type){
+    int size = 0;
+    switch(type->kind){
+        case BASIC:
+            {
+                if(!strcmp(type->basic, "int")){
+                    size = 4;
+                }
+                else if(!strcmp(type->basic, "float")){
+                    size = 4;
+                }
+                else{
+                    assert(0);
+                }
+                break;
+            }
+        case ARRAY:
+            {
+                size = type->array.size 
+                    * getTypeSize(type->array.elem);
+                break;
+            }
+        case STRUCTURE:
+            {
+                FieldList head = type->structure.list;
+                for(; head != NULL; head = head->tail){
+                    size += getTypeSize(head->type);
+                }
+                break;
+            }
+        case FUNCTION:
+            {
+                assert(0);
+                break;
+            }
+        default:
+            assert(0);
+            break;
+    }
+    return size;
+}
+
 Type getSymbolType(SymbolTable symbolTable, char* id){
     assert(symbolTable != NULL);
     unsigned int hash_num = hash_pjw(id);
@@ -471,7 +513,9 @@ void newUndefinedFunc(char* name, Type retType, int lineno){
             insertIntoSymbolTable(symbolTable, symbolNode);
         }
         else if(tmpType->function.isDefined == false){
-            /*if(matchType(tmpType, type) == false){
+            /*
+             * 这里的注释会导致该编译器不支持函数只声明不定义
+             * if(matchType(tmpType, type) == false){
                 printf("Error type 19 at Line %d: Inconsistent declaration of function \"%s\".\n",
                       yylineno,
                       name);
@@ -514,13 +558,16 @@ void newDefinedFunc(char* name, Type retType, int lineno){
             insertIntoSymbolTable(symbolTable, symbolNode);
         }
         else if(tmpType->function.isDefined == false){
-            /*if(matchType(tmpType, type) == false){
+            /*
+             * 这里的注释会导致该编译器不支持函数只声明不定义
+             * if(matchType(tmpType, type) == false){
                 printf("Error type 19 at Line %d: Inconsistent declaration of function \"%s\".\n",
                       yylineno,
                       name);
                 success = 0;
                 return;
-            }*/
+            }
+            */
             tmpType->function.isDefined = true;
             /*SymbolNode symbolNode = newSymbolNode(name, tmpType);
             insertIntoSymbolTable(symbolTable, symbolNode);*/

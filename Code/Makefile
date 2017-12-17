@@ -34,7 +34,7 @@ syntax-c: $(YFILE)
 # 定义的一些伪目标
 .PHONY: clean test
 test:
-	./parser ./testcase2.txt
+	./parser ./testcase3.txt
 #	./parser ../pretest2/1.txt
 #	@echo 'Error type 1 at Line 4: Undefined variable "j".'
 #	./parser ../pretest2/2.txt

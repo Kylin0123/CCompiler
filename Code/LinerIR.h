@@ -17,7 +17,7 @@ Operand newOperand();
 typedef struct InterCode_* InterCode;
  struct InterCode_ 
  {
-     enum {ASSIGN,PLUS_, MINUS_,MUL,DIV_,EMPTY,FUNCDEC,FUNCCALL,SPFUNCCALL,ARG,LABEL,COND,GOTO,RETURN_,PARAM,DEC,ADDR_ASSIGN,ARRAY_ASSIGN, FUNCCALLREAD, FUNCCALLWRITE} kind;
+     enum {ASSIGN, ASSIGN_STAR, ASSIGN_ADDR, STAR_ASSIGN, PLUS_, MINUS_,MUL,DIV_,EMPTY,FUNCDEC,FUNCCALL,SPFUNCCALL,ARG,LABEL,COND,GOTO,RETURN_,PARAM,DEC,ADDR_ASSIGN, ARRAY_ASSIGN, FUNCCALLREAD, FUNCCALLWRITE} kind;
      union {
          struct { Operand right, left; } assign;
          struct { Operand result, op1, op2; } binop;
@@ -31,6 +31,7 @@ typedef struct InterCode_* InterCode;
          struct { Operand left, right; } funccall;
          struct { Operand op; } arg;
          struct { Operand op; } param;
+         struct { Operand op; int size; } dec;
      };
  };
 

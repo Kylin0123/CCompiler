@@ -100,7 +100,7 @@ Node* parse_Specifier(Node* node);
 Node* parse_StructSpecifier(Node* node);
 Node* parse_OptTag(Node* node);
 Node* parse_Tag(Node* node);
-Node* parse_VarDec(Node* node);
+Node* parse_VarDec(Node* node, Type t);
 Node* parse_FunDec(Node* node);
 Node* parse_VarList(Node* node);
 Node* parse_ParamDec(Node* node);
@@ -109,9 +109,9 @@ Node* parse_StmtList(Node* node);
 Node* parse_Stmt(Node* node);
 Node* parse_DefList(Node* node);
 Node* parse_Def(Node* node);
-Node* parse_DecList(Node* node);
-Node* parse_Dec(Node* node);
-Node* parse_Exp(Node* node, Operand place);
+Node* parse_DecList(Node* node, Type t);
+Node* parse_Dec(Node* node, Type t);
+Node* parse_Exp(Node* node, Operand place, bool isLeftVal);
 Node* parse_Cond(Node* node, int label_true, int label_false);
 Node* parse_Args(Node* node, struct OperandList ** arg_list);
 
@@ -153,11 +153,55 @@ Operand lookup(char* id){
         operand->str = id;
     }
     else if(type->kind == STRUCTURE){
-        assert(0);
+        for(int i = 0; i < local_sym_size; i++){
+            if(!strcmp(local_sym[i], id)){
+                operand->kind = VARIABLE;
+                operand->no = i+1;
+                return operand;
+            }
+        }
+
+        copystr(local_sym[local_sym_size], id);
+        local_sym_size++;
+
+        operand->kind = VARIABLE;
+        operand->no= local_sym_size;
+        return operand;
     }
     else{
         assert(0); //please implement me
     }
+    return operand;
+}
+
+Operand lookupwithCode(char* id, InterCodes* code){
+    Operand operand = newOperand();
+    for(int i = 0; i < local_sym_size; i++){
+        if(!strcmp(local_sym[i], id)){
+            operand->kind = VARIABLE;
+            operand->no = i+1;
+            return operand;
+        }
+    }
+
+    Type type = getSymbolType(symbolTable, id);
+    if(type == NULL || type->kind != STRUCTURE)
+        return lookup(id);
+    
+    copystr(local_sym[local_sym_size], id);
+    local_sym_size++;
+
+    operand->kind = VARIABLE;
+    operand->no= local_sym_size;
+
+    int size = getTypeSize(type); 
+    
+    *code = newInterCodes();
+    (*code)->code = newInterCode();
+    (*code)->code->kind = DEC;
+    (*code)->code->dec.op = operand;
+    (*code)->code->dec.size = size;
+
     return operand;
 }
 
@@ -237,12 +281,13 @@ Node* parse_ExtDef(Node* node){
 
 Node* parse_ExtDecList(Node* node){
     MATCH1(VarDec){
-        parse_VarDec(node->child);
+        node->code = parse_VarDec(node->child, NULL)->code;
         return node;
     }
     MATCH3(VarDec, COMMA, ExtDeclist){
-        parse_VarDec(node->child);
-        parse_ExtDecList(node->child->sibling->sibling);
+        InterCodes code1 = parse_VarDec(node->child, NULL)->code;
+        InterCodes code2 = parse_ExtDecList(node->child->sibling->sibling)->code;
+        node->code = mergeCode(code1, code2);
         return node;
     }
     assert(0);
@@ -294,29 +339,46 @@ Node* parse_Tag(Node* node){
     return NULL;
 }
 
-Node* parse_VarDec(Node* node){
+Node* parse_VarDec(Node* node, Type t){
     MATCH1(ID){
-        Type t = getSymbolType(symbolTable, node->child->id);
+        if(t == NULL) return node;
         if(t->kind == STRUCTURE){
-            assert(0);
+            Operand op = lookup(node->child->id);
+            /*
+            InterCodes paramCode = newInterCodes();
+            paramCode->code = newInterCode();
+            paramCode->code->kind = PARAM;
+            paramCode->code->param.op = op;
+            
+            node->code = paramCode;*/
+            InterCodes code1 = newInterCodes();
+            code1->code = newInterCode();
+            code1->code->kind = DEC;
+            code1->code->dec.op = op;
+            code1->code->dec.size = getTypeSize(t);
+
+            node->code = code1;
+            return node;
         }
         else if(t->kind == ARRAY){
-            assert(0);
+            /*do nothing*/
+            return node;
         }
         else{
             /*maybe parameter or just common variable declaration.*/
-            Operand op = lookup(node->child->id);
+            /*Operand op = lookup(node->child->id);
             InterCodes paramCode = newInterCodes();
             paramCode->code = newInterCode();
             paramCode->code->kind = PARAM;
             paramCode->code->param.op = op;
 
-            node->code = paramCode;
+            node->code = paramCode;*/
+            node->code = NULL;
             return node;
         }
     }
     MATCH4(VarDec, LB, INT, RB){
-        parse_VarDec(node->child);
+        parse_VarDec(node->child, t);
         /*do something*/
         return node;
     }
@@ -355,7 +417,13 @@ Node* parse_VarList(Node* node){
 Node* parse_ParamDec(Node* node){
     MATCH2(Specifier, VarDec){
         parse_Specifier(node->child);
-        node->code = parse_VarDec(node->child->sibling)->code;
+        Node* n = parse_VarDec(node->child->sibling, NULL);
+        Operand op = lookup(n->id);
+        InterCodes paramCode = newInterCodes();
+        paramCode->code = newInterCode();
+        paramCode->code->kind = PARAM;
+        paramCode->code->param.op = op;
+        node->code = paramCode;   
         return node;
     }
     assert(0);
@@ -365,7 +433,6 @@ Node* parse_ParamDec(Node* node){
 Node* parse_CompSt(Node* node){
     MATCH4(LC, DefList, StmtList, RC){
         Node* nodeDefList = parse_DefList(node->child->sibling);
-        printInterCodes(nodeDefList->code);
         Node* nodeStmtList = parse_StmtList(node->child->sibling->sibling);
         node->code = mergeCode(nodeDefList->code, nodeStmtList->code);
         return node;
@@ -388,7 +455,7 @@ Node* parse_StmtList(Node* node){
 
 Node* parse_Stmt(Node* node){
     MATCH2(Exp, SEMI){
-        node->code = parse_Exp(node->child, NULL)->code;
+        node->code = parse_Exp(node->child, NULL, false)->code;
         return node;
     }
     MATCH1(CompSt){
@@ -397,7 +464,7 @@ Node* parse_Stmt(Node* node){
     }
     MATCH3(RETURN, Exp, SEMI){
         Operand t1 = new_temp();
-        InterCodes code1 = parse_Exp(node->child->sibling, t1)->code;
+        InterCodes code1 = parse_Exp(node->child->sibling, t1, false)->code;
         InterCodes code2 = newInterCodes();
         code2->code = newInterCode();
         code2->code->kind = RETURN_;
@@ -469,46 +536,52 @@ Node* parse_Stmt(Node* node){
 
 Node* parse_DefList(Node* node){
     MATCH2(Def, DefList){
-        parse_Def(node->child);
-        parse_DefList(node->child->sibling);
+        InterCodes code1 = parse_Def(node->child)->code;
+        InterCodes code2 = parse_DefList(node->child->sibling)->code;
+        node->code = mergeCode(code1, code2);
         return node;
     }
     /*empty*/
+    node->code = NULL;
     return node;
 }
 
 Node* parse_Def(Node* node){
     MATCH3(Specifier, DecList, SEMI){
-        parse_Specifier(node->child);
-        parse_DecList(node->child->sibling);
+        Node* n = parse_Specifier(node->child);
+        node->code = parse_DecList(node->child->sibling, n->type)->code;
         return node;
     }
     assert(0);
     return NULL;
 }
 
-Node* parse_DecList(Node* node){
+Node* parse_DecList(Node* node, Type t){
     MATCH1(Dec){
-        parse_Dec(node->child);
+        node->code = parse_Dec(node->child, t)->code;
         return node;
     }
     MATCH3(Dec, COMMA, DecList){
-        parse_Dec(node->child);
-        parse_DecList(node->child->sibling->sibling);
+        InterCodes code1 = parse_Dec(node->child, t)->code;
+        InterCodes code2 = parse_DecList(node->child->sibling->sibling, t)->code;
+        node->code = mergeCode(code1, code2);
         return node;
     }
     assert(0);
     return NULL;
 }
 
-Node* parse_Dec(Node* node){
+Node* parse_Dec(Node* node, Type t){
     MATCH1(VarDec){
-        parse_VarDec(node->child);
+        node->code = parse_VarDec(node->child, t)->code;
         return node;
     }
     MATCH3(VarDec, ASSIGNOP, Exp){
-        parse_VarDec(node->child);
-        //parse_Exp(node->child->sibling->sibling);
+        Operand op = new_temp();
+        InterCodes code2 = parse_Exp(node->child->sibling->sibling, op, false)->code;
+        //TODO: do something with op....
+        InterCodes code1 = parse_VarDec(node->child, t)->code;
+        node->code = mergeCode(code2, code1);
         return node;
     }
     assert(0);
@@ -519,8 +592,8 @@ Node* parse_Cond(Node* node, int label_true, int label_false){
     MATCH3(Exp, RELOP, Exp){
         Operand t1 = new_temp();
         Operand t2 = new_temp();
-        InterCodes code1 = parse_Exp(node->child, t1)->code;
-        InterCodes code2 = parse_Exp(node->child->sibling->sibling, t2)->code;
+        InterCodes code1 = parse_Exp(node->child, t1, false)->code;
+        InterCodes code2 = parse_Exp(node->child->sibling->sibling, t2, false)->code;
         Node* nodeOp = node->child->sibling;
         char* op = nodeOp->id;
         InterCodes code3 = newInterCodes();
@@ -557,7 +630,7 @@ Node* parse_Cond(Node* node, int label_true, int label_false){
         return node;
     }
     Operand t1 = new_temp();
-    InterCodes code1 = parse_Exp(node, t1)->code;
+    InterCodes code1 = parse_Exp(node, t1, false)->code;
     InterCodes code2 = newInterCodes();
     code2->code = newInterCode();
     code2->code->kind = COND;
@@ -571,20 +644,24 @@ Node* parse_Cond(Node* node, int label_true, int label_false){
     return node;
 }
 
-Node* parse_Exp(Node* node, Operand place){
+Node* parse_Exp(Node* node, Operand place, bool isLeftVal){
     MATCH3(Exp, ASSIGNOP, Exp){
         Node* nodeExp1 = node->child;
         Node* nodeExp2 = node->child->sibling->sibling;
-        Operand variable = lookup(nodeExp1->id);
-        Operand t1 = new_temp();
-        InterCodes code1 = parse_Exp(nodeExp2, t1)->code;
+        
+        //Operand variable = lookup(nodeExp1->id);
 
+        Operand t0 = new_temp();
+        InterCodes code0 = parse_Exp(nodeExp2, t0 ,false)->code;
+        InterCodes code1 = parse_Exp(nodeExp1, t0, true)->code;
+        /*
         InterCodes code2 = newInterCodes();
         code2->code = newInterCode();
         code2->code->kind = ASSIGN;
-        code2->code->assign.left = variable;
-        code2->code->assign.right = t1;
-        
+        code2->code->assign.left = place;
+        code2->code->assign.right = t0;
+        */
+        /*
         InterCodes code_tmp = newInterCodes();
         if(place == NULL) 
             code_tmp = NULL;
@@ -594,15 +671,17 @@ Node* parse_Exp(Node* node, Operand place){
             code_tmp->code->assign.left = place;
             code_tmp->code->assign.right = variable;
         }
+        */
 
-        node->code = mergeCode(code1, mergeCode(code2, code_tmp));
+        //node->code = mergeCode(code1, mergeCode(code2, code_tmp));
+        node->code = mergeCode(code0, code1);
         return node;
     }
     MATCH3(Exp, PLUS, Exp){
         Operand t1 = new_temp();
         Operand t2 = new_temp();
-        InterCodes code1 = parse_Exp(node->child, t1)->code;
-        InterCodes code2 = parse_Exp(node->child->sibling->sibling, t2)->code;
+        InterCodes code1 = parse_Exp(node->child, t1, false)->code;
+        InterCodes code2 = parse_Exp(node->child->sibling->sibling, t2, false)->code;
         InterCodes code3 = newInterCodes();
         code3->code = newInterCode();
         code3->code->kind = PLUS_;
@@ -616,8 +695,8 @@ Node* parse_Exp(Node* node, Operand place){
     MATCH3(Exp, MINUS, Exp){
         Operand t1 = new_temp();
         Operand t2 = new_temp();
-        InterCodes code1 = parse_Exp(node->child, t1)->code;
-        InterCodes code2 = parse_Exp(node->child->sibling->sibling, t2)->code;
+        InterCodes code1 = parse_Exp(node->child, t1, false)->code;
+        InterCodes code2 = parse_Exp(node->child->sibling->sibling, t2, false)->code;
         InterCodes code3 = newInterCodes();
         code3->code = newInterCode();
         code3->code->kind = MINUS_;
@@ -631,8 +710,8 @@ Node* parse_Exp(Node* node, Operand place){
         MATCH3(Exp, STAR, Exp){
         Operand t1 = new_temp();
         Operand t2 = new_temp();
-        InterCodes code1 = parse_Exp(node->child, t1)->code;
-        InterCodes code2 = parse_Exp(node->child->sibling->sibling, t2)->code;
+        InterCodes code1 = parse_Exp(node->child, t1, false)->code;
+        InterCodes code2 = parse_Exp(node->child->sibling->sibling, t2, false)->code;
         InterCodes code3 = newInterCodes();
         code3->code = newInterCode();
         code3->code->kind = MUL;
@@ -645,18 +724,20 @@ Node* parse_Exp(Node* node, Operand place){
     }
     MATCH3(Exp, DIV, Exp){
         assert(0);
-        /*parse_Exp(node->child);
-        parse_Exp(node->child->sibling->sibling);
-        return node;*/
+        /*
+         * parse_Exp(node->child);
+         * parse_Exp(node->child->sibling->sibling);
+         * return node;
+         */
     }
     MATCH3(LP, Exp, RP){
-        node->code = parse_Exp(node->child->sibling, place)->code;
+        node->code = parse_Exp(node->child->sibling, place, false)->code;
         return node;
     }
     MATCH2(MINUS, Exp){
         Node* nodeExp = node->child->sibling;
         Operand t1 = new_temp();
-        InterCodes code1 = parse_Exp(nodeExp, t1)->code;
+        InterCodes code1 = parse_Exp(nodeExp, t1, false)->code;
         InterCodes code2 = newInterCodes();
         code2->code = newInterCode();
         code2->code->kind = MINUS_;
@@ -675,7 +756,6 @@ Node* parse_Exp(Node* node, Operand place){
        
         struct OperandList *arg_list = NULL;
         InterCodes code1 = parse_Args(nodeArgs, &arg_list)->code;
-
         if(!strcmp(function->str, "write")){
             InterCodes interCodes = newInterCodes();
             interCodes->code = newInterCode();
@@ -727,20 +807,108 @@ Node* parse_Exp(Node* node, Operand place){
         assert(0);
     }
     MATCH3(Exp, DOT, ID){
-        /*parse_Exp(node->child);
-        return node;*/
-        assert(0);
+        Node* nodeID = node->child->child;
+        /*NOTE: suppose Exp => ID*/
+        assert(!strcmp(nodeID->tag_name, "ID"));
+        
+        Node* nodeIDright = node->child->sibling->sibling;
+
+        Type t = getSymbolType(symbolTable, nodeID->id);
+        assert(t->kind == STRUCTURE);
+        if(isLeftVal == false){
+            FieldList head = t->structure.list;
+            int offset = 0;
+            for(; head != NULL; head = head->tail){
+                if(!strcmp(head->name, nodeIDright->id)){
+                    break;
+                }
+                offset += getTypeSize(head->type);
+            }
+            Operand base = lookup(nodeID->id);
+
+            InterCodes code1 = newInterCodes();
+            code1->code = newInterCode();
+            Operand offsetOp = number(offset);
+            Operand t1 = new_temp();
+            code1->code->kind = PLUS_;
+            code1->code->binop.op1 = base;
+            code1->code->binop.op2 = offsetOp;
+            code1->code->binop.result = t1;
+
+            InterCodes code2 = newInterCodes();
+            code2->code = newInterCode();
+            code2->code->kind = ASSIGN_STAR;
+            code2->code->assign.left = place;
+            code2->code->assign.right = t1;
+            node->code = mergeCode(code1, code2);
+        }
+        else{
+            /*isLeftVal == true*/
+            FieldList head = t->structure.list;
+            int offset = 0;
+            for(; head != NULL; head = head->tail){
+                if(!strcmp(head->name, nodeIDright->id)){
+                    break;
+                }
+                offset += getTypeSize(head->type);
+            }
+            Operand t1 = new_temp();
+            Operand base = lookup(nodeID->id);
+
+            InterCodes code0 = newInterCodes();
+            code0->code->kind = ASSIGN_ADDR;
+            code0->code->assign.left = t1;
+            code0->code->assign.right = base;
+
+            Operand t2 = new_temp();
+
+            InterCodes code1 = newInterCodes();
+            code1->code = newInterCode();
+            Operand offsetOp = number(offset);
+            code1->code->kind = PLUS_;
+            code1->code->binop.op1 = t1;
+            code1->code->binop.op2 = offsetOp;
+            code1->code->binop.result = t2;
+
+            InterCodes code2 = newInterCodes();
+            code2->code = newInterCode();
+            code2->code->kind = STAR_ASSIGN;
+            code2->code->assign.left = t2;
+            code2->code->assign.right = place;
+            node->code = mergeCode(mergeCode(code0, code1), code2);
+        }
+        return node;
     }
     MATCH1(ID){
         /*do something*/ 
-        Node* nodeID = node->child;
-        Operand variable = lookup(nodeID->id);
-        InterCodes interCodes = newInterCodes();
-        interCodes->code = newInterCode();
-        interCodes->code->kind = ASSIGN; 
-        interCodes->code->assign.left = place;
-        interCodes->code->assign.right = variable;
-        node->code = interCodes;
+        if(!isLeftVal){
+            Node* nodeID = node->child;
+            Operand variable = lookup(nodeID->id);
+            Type t = getSymbolType(symbolTable, nodeID->id);
+
+            InterCodes interCodes = newInterCodes();
+            if(t->kind ==STRUCTURE){
+                interCodes->code->kind = ASSIGN_ADDR;
+                interCodes->code->assign.left = place;
+                interCodes->code->assign.right= variable;
+            }
+            else{
+                interCodes->code->kind = ASSIGN; 
+                interCodes->code->assign.left = place;
+                interCodes->code->assign.right = variable;
+            }
+            node->code = interCodes;
+        }
+        else{
+            Node* nodeID = node->child;
+            Operand variable = lookup(nodeID->id);
+            InterCodes interCodes = newInterCodes();
+            interCodes->code = newInterCode();
+            interCodes->code->kind = ASSIGN; 
+            interCodes->code->assign.left = variable;
+            interCodes->code->assign.right = place;
+            node->code = interCodes;
+        }
         return node;
     }
     MATCH1(INT){
@@ -800,7 +968,8 @@ Node* parse_Exp(Node* node, Operand place){
 Node* parse_Args(Node* node, struct OperandList ** arg_list){
     MATCH3(Exp, COMMA, Args){
         Operand t1 = new_temp();
-        InterCodes code1 = parse_Exp(node->child, t1)->code;
+        InterCodes code1 = parse_Exp(node->child, t1, false)->code;
+       
         node->code = code1;
         
         struct OperandList* head = malloc(sizeof(struct OperandList));
@@ -814,7 +983,8 @@ Node* parse_Args(Node* node, struct OperandList ** arg_list){
     }
     MATCH1(Exp){
         Operand t1 = new_temp();
-        InterCodes code1 = parse_Exp(node->child, t1)->code;
+        InterCodes code1 = parse_Exp(node->child, t1, false)->code;
+         
         struct OperandList* head = malloc(sizeof(struct OperandList));
         head->op = t1;
         head->next = *arg_list;

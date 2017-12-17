@@ -51,7 +51,7 @@ bool isParam;  //is now parsing parameters?
 Program: ExtDefList{
        $$=newNode("Program",1,$1);
        checkUndefinedFuncBeforeExit();
-       //printSymbolTable(symbolTable);
+       printSymbolTable(symbolTable);
        if(!success) {
            exit(0);
        }
@@ -213,6 +213,8 @@ CompSt: {
       $$=newNode("CompSt",4,$2,$3,$4,$5);
       $$->lineno = $4->lineno;
       copytype($$->type, $4->type);
+      /*
+      NOTE: 这里的注释会导致该编译器不支持作用域
       SymbolNode s = popFromSymbolStack(symbolStack);
       if(s != NULL){
         s = s->stack_next;
@@ -222,6 +224,7 @@ CompSt: {
             deleteFromSymbolTable(symbolTable, deleteNode);
         }
       }
+      */
       }
       ;
 StmtList: Stmt StmtList{

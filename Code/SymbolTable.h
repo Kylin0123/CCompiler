@@ -39,6 +39,7 @@ void addFieldList(FieldList head, FieldList fieldList);
 
 Type newType();
 void printType(Type type);
+int getTypeSize(Type type);
 
 bool matchType(Type t1, Type t2);
 Type matchReturnType(Type t1, Type t2, int lineno);

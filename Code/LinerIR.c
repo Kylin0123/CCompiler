@@ -35,6 +35,7 @@ void printOperand(Operand operand){
         case ADDRESS:
             {
                 printf("please implement me\n");
+                assert(0);
                 break;
             }
         default:
@@ -44,6 +45,7 @@ void printOperand(Operand operand){
 
 InterCodes newInterCodes(){
     InterCodes interCodes = malloc(sizeof(struct InterCodes_));
+    interCodes->code = newInterCode();
     interCodes->prev = NULL;
     interCodes->next = NULL;
     return interCodes;
@@ -76,9 +78,9 @@ InterCodes tail(InterCodes code){
 
 InterCodes head(InterCodes code){
     assert(code != NULL);
-    InterCodes code_head= code;
+    InterCodes code_head = code;
     while(code_head->prev != NULL) 
-        code_head= code_head->prev;
+        code_head = code_head->prev;
     return code_head;
 }
 
@@ -86,11 +88,14 @@ InterCodes mergeCode(InterCodes code1, InterCodes code2){
     if(code1 == NULL) return code2;
     if(code2 == NULL) return code1;
     assert(code1 != NULL && code2 != NULL);
+    assert(code1 != code2);
     InterCodes code1_tail = tail(code1);
     InterCodes code2_head = head(code2);
+    assert(code1_tail != NULL && code2_head != NULL);
     code1_tail->next = code2_head;
     code2_head->prev = code1_tail;
-    return head(code1);
+    InterCodes code = head(code1);
+    return code;
 }
 
 void printInterCodes(InterCodes interCodes){
@@ -107,6 +112,31 @@ void printInterCodes(InterCodes interCodes){
                     printf("\n");
                     break;
                 }
+            case ASSIGN_STAR:
+                {
+                    printOperand(interCode->assign.left);
+                    printf(" := *");
+                    printOperand(interCode->assign.right);
+                    printf("\n");
+                    break;
+                }
+            case ASSIGN_ADDR:
+            {
+                printOperand(interCode->assign.left);
+                printf(" := &");
+                printOperand(interCode->assign.right);
+                printf("\n");
+                break;
+            }
+            case STAR_ASSIGN:
+            {
+                printf("*");
+                printOperand(interCode->assign.left);
+                printf(" := ");
+                printOperand(interCode->assign.right);
+                printf("\n");
+                break;
+            }
             case PLUS_:
                 {
                     printOperand(interCode->binop.result);
@@ -222,10 +252,17 @@ void printInterCodes(InterCodes interCodes){
                 }
             case DEC:
                 {
+                    printf("DEC ");
+                    printOperand(interCode->dec.op);
+                    printf(" %d\n", interCode->dec.size);
                     break;
                 }
             case ADDR_ASSIGN:
                 {
+                    printOperand(interCode->assign.left);
+                    printf(" := &");
+                    printOperand(interCode->assign.right);
+                    printf("\n");
                     break;
                 }
             case ARRAY_ASSIGN:
