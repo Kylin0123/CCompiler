@@ -39,14 +39,14 @@ InterCode newInterCode();
 
 typedef struct InterCodes_* InterCodes;
 struct InterCodes_ { InterCode code; InterCodes prev, next; };
-void printOperand(Operand operand);
+void printOperand(FILE* f, Operand operand);
 InterCodes newInterCodes();
 InterCodes genLabelCode(int label_no);
 InterCodes genGotoCode(int label_no);
 InterCodes tail(InterCodes code);
 InterCodes head(InterCodes code);
 InterCodes mergeCode(InterCodes code1, InterCodes code2);
-void printInterCodes(InterCodes interCodes);
+void printInterCodes(FILE* f, InterCodes interCodes);
 
 
 #endif

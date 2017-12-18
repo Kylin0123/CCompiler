@@ -116,6 +116,7 @@ Node* parse_Cond(Node* node, int label_true, int label_false);
 Node* parse_Args(Node* node, struct OperandList ** arg_list);
 
 extern SymbolTable symbolTable;
+extern FILE* out;
 
 char* local_sym[100];
 int local_sym_size = 0;
@@ -1173,7 +1174,7 @@ Node* parse_Args(Node* node, struct OperandList ** arg_list){
 
 Node* parse2GenCode(Node* node){
     InterCodes code = parse_Program(node)->code;
-    printInterCodes(code);
+    printInterCodes(out, code);
     return node;
 }
 

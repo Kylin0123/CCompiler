@@ -9,32 +9,32 @@ InterCode newInterCode(){
     return malloc(sizeof(struct InterCode_));
 }
 
-void printOperand(Operand operand){
+void printOperand(FILE* f, Operand operand){
     if(operand == NULL) return;
     switch(operand->kind){
         case VARIABLE:
             {
-                printf("v%d", operand->no);
+                fprintf(f, "v%d", operand->no);
                 break;
             }
         case TEMP:
             {
-                printf("t%d", operand->no);
+                fprintf(f, "t%d", operand->no);
                 break;
             }
         case STRING:
             {
-                printf("%s", operand->str);
+                fprintf(f, "%s", operand->str);
                 break;
             }
         case CONSTANT:
             {
-                printf("#%d", operand->no);
+                fprintf(f, "#%d", operand->no);
                 break;
             }
         case ADDRESS:
             {
-                printf("please implement me\n");
+                fprintf(stderr, "please implement me\n");
                 assert(0);
                 break;
             }
@@ -98,7 +98,7 @@ InterCodes mergeCode(InterCodes code1, InterCodes code2){
     return code;
 }
 
-void printInterCodes(InterCodes interCodes){
+void printInterCodes(FILE* f, InterCodes interCodes){
     if(interCodes == NULL) return;
     InterCodes first = head(interCodes);
     for(; first != NULL; first = first->next){
@@ -106,173 +106,173 @@ void printInterCodes(InterCodes interCodes){
         switch(interCode->kind){
             case ASSIGN:
                 {
-                    printOperand(interCode->assign.left);
-                    printf(" := ");
-                    printOperand(interCode->assign.right);
-                    printf("\n");
+                    printOperand(f, interCode->assign.left);
+                    fprintf(f, " := ");
+                    printOperand(f, interCode->assign.right);
+                    fprintf(f, "\n");
                     break;
                 }
             case ASSIGN_STAR:
                 {
-                    printOperand(interCode->assign.left);
-                    printf(" := *");
-                    printOperand(interCode->assign.right);
-                    printf("\n");
+                    printOperand(f, interCode->assign.left);
+                    fprintf(f, " := *");
+                    printOperand(f, interCode->assign.right);
+                    fprintf(f, "\n");
                     break;
                 }
             case ASSIGN_ADDR:
             {
-                printOperand(interCode->assign.left);
-                printf(" := &");
-                printOperand(interCode->assign.right);
-                printf("\n");
+                printOperand(f, interCode->assign.left);
+                fprintf(f, " := &");
+                printOperand(f, interCode->assign.right);
+                fprintf(f, "\n");
                 break;
             }
             case STAR_ASSIGN:
             {
-                printf("*");
-                printOperand(interCode->assign.left);
-                printf(" := ");
-                printOperand(interCode->assign.right);
-                printf("\n");
+                fprintf(f, "*");
+                printOperand(f, interCode->assign.left);
+                fprintf(f, " := ");
+                printOperand(f, interCode->assign.right);
+                fprintf(f, "\n");
                 break;
             }
             case PLUS_:
-                {
-                    printOperand(interCode->binop.result);
-                    printf(" := ");
-                    printOperand(interCode->binop.op1);
-                    printf(" + ");
-                    printOperand(interCode->binop.op2);
-                    printf("\n");
-                    break;
-                }
+            {
+                printOperand(f, interCode->binop.result);
+                fprintf(f, " := ");
+                printOperand(f, interCode->binop.op1);
+                fprintf(f, " + ");
+                printOperand(f, interCode->binop.op2);
+                fprintf(f, "\n");
+                break;
+            }
             case MINUS_:
-                {
-                    printOperand(interCode->binop.result);
-                    printf(" := ");
-                    printOperand(interCode->binop.op1);
-                    printf(" - ");
-                    printOperand(interCode->binop.op2);
-                    printf("\n");
-                    break;
-                }
-            case MUL:
-                {
-                    printOperand(interCode->binop.result);
-                    printf(" := ");
-                    printOperand(interCode->binop.op1);
-                    printf(" * ");
-                    printOperand(interCode->binop.op2);
-                    printf("\n");
-                    break;
-                }
-            case DIV_:
-                {
-                    break;
-                }
-            case EMPTY:
-                {
-                    break;
-                }
+            {
+                printOperand(f, interCode->binop.result);
+                fprintf(f, " := ");
+                printOperand(f, interCode->binop.op1);
+                fprintf(f, " - ");
+                printOperand(f, interCode->binop.op2);
+                fprintf(f, "\n");
+                break;
+            }
+case MUL:
+    {
+        printOperand(f, interCode->binop.result);
+        fprintf(f, " := ");
+        printOperand(f, interCode->binop.op1);
+        fprintf(f, " * ");
+        printOperand(f, interCode->binop.op2);
+        fprintf(f, "\n");
+        break;
+    }
+    case DIV_:
+        {
+            break;
+        }
+        case EMPTY:
+            {
+                break;
+            }
             case FUNCDEC:
                 {
-                    printf("FUNCTION ");
-                    printOperand(interCode->funcdec.op);
-                    printf(" :\n");
+                    fprintf(f, "FUNCTION ");
+                    printOperand(f, interCode->funcdec.op);
+                    fprintf(f, " :\n");
                     break;
                 }
-            case FUNCCALL:
-                {
-                    printOperand(interCode->funccall.left);
-                    printf(" := CALL ");
-                    printOperand(interCode->funccall.right);
-                    printf("\n");
-                    break;
-                }
-            case FUNCCALLREAD:
-                {
-                    printf("READ ");
-                    printOperand(interCode->funccallread.op);
-                    printf("\n");
-                    break;
-                }
-            case FUNCCALLWRITE:
-                {
-                    printf("WRITE ");
-                    printOperand(interCode->funccallwrite.op);
-                    printf("\n");
-                    break;
-                }
-            case SPFUNCCALL:
-                {
-                    break;
-                }
-            case ARG:
-                {
-                    printf("ARG ");
-                    printOperand(interCode->arg.op);
-                    printf("\n");
-                    break;
-                }
-            case LABEL:
-                {
-                    printf("LABEL label%d :\n",interCode->label.no);
-                    break;
-                }
-            case COND:
-                {
-                    printf("IF ");
-                    printOperand(interCode->cond.v1);
-                    printf(" %s ", interCode->cond.op);
-                    printOperand(interCode->cond.v2);
-                    assert(interCode->cond.label_no > 0);
-                    printf(" GOTO label%d\n", interCode->cond.label_no);
+                case FUNCCALL:
+                    {
+                        printOperand(f, interCode->funccall.left);
+                        fprintf(f, " := CALL ");
+                        printOperand(f, interCode->funccall.right);
+                        fprintf(f, "\n");
+                        break;
+                    }
+                    case FUNCCALLREAD:
+                        {
+                            fprintf(f, "READ ");
+                            printOperand(f, interCode->funccallread.op);
+                            fprintf(f, "\n");
+                            break;
+                        }
+                        case FUNCCALLWRITE:
+                            {
+                                fprintf(f, "WRITE ");
+                                printOperand(f, interCode->funccallwrite.op);
+                                fprintf(f, "\n");
+                                break;
+                            }
+                            case SPFUNCCALL:
+                                {
+                                    break;
+                                }
+                                case ARG:
+                                    {
+                                        fprintf(f, "ARG ");
+                                        printOperand(f, interCode->arg.op);
+                                        fprintf(f, "\n");
+                                        break;
+                                    }
+                                    case LABEL:
+                                        {
+                                            fprintf(f, "LABEL label%d :\n",interCode->label.no);
+                                            break;
+                                        }
+                                        case COND:
+                                            {
+                                                fprintf(f, "IF ");
+                                                printOperand(f, interCode->cond.v1);
+                                                fprintf(f, " %s ", interCode->cond.op);
+                                                printOperand(f, interCode->cond.v2);
+                                                assert(interCode->cond.label_no > 0);
+                                                fprintf(f, " GOTO label%d\n", interCode->cond.label_no);
 
-                    break;
-                }
-            case GOTO:
-                {
-                    printf("GOTO label%d\n",interCode->label.no);
-                    break;
-                }
-            case RETURN_:
-                {
-                    printf("RETURN ");
-                    printOperand(interCode->return_.op);
-                    printf("\n");
-                    break;
-                }
-            case PARAM:
-                {
-                    printf("PARAM ");
-                    printOperand(interCode->param.op);
-                    printf("\n");
-                    break;
-                }
-            case DEC:
-                {
-                    printf("DEC ");
-                    printOperand(interCode->dec.op);
-                    printf(" %d\n", interCode->dec.size);
-                    break;
-                }
-            case ADDR_ASSIGN:
-                {
-                    printOperand(interCode->assign.left);
-                    printf(" := &");
-                    printOperand(interCode->assign.right);
-                    printf("\n");
-                    break;
-                }
-            case ARRAY_ASSIGN:
-                {
-                    break;
-                }
-            default:
-                break;
+                                                break;
+                                            }
+                                            case GOTO:
+                                                {
+                                                    fprintf(f, "GOTO label%d\n",interCode->label.no);
+                                                    break;
+                                                }
+                                                case RETURN_:
+                                                    {
+                                                        fprintf(f, "RETURN ");
+                                                        printOperand(f, interCode->return_.op);
+                                                        fprintf(f, "\n");
+                                                        break;
+                                                    }
+                                                    case PARAM:
+                                                        {
+                                                            fprintf(f, "PARAM ");
+                                                            printOperand(f, interCode->param.op);
+                                                            fprintf(f, "\n");
+                                                            break;
+                                                        }
+                                                        case DEC:
+                                                            {
+                                                                fprintf(f, "DEC ");
+                                                                printOperand(f, interCode->dec.op);
+                                                                fprintf(f, " %d\n", interCode->dec.size);
+                                                                break;
+                                                            }
+                                                            case ADDR_ASSIGN:
+                                                                {
+                                                                    printOperand(f, interCode->assign.left);
+                                                                    fprintf(f, " := &");
+                                                                    printOperand(f, interCode->assign.right);
+                                                                    fprintf(f, "\n");
+                                                                    break;
+                                                                }
+                                                                case ARRAY_ASSIGN:
+                                                                    {
+                                                                        break;
+                                                                    }
+                                                                    default:
+                                                                        break;
         }
-    }
-}
+        }
+        }
 
 

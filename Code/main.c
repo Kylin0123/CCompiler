@@ -14,14 +14,21 @@ TypeStack typeStack;
 SymbolStack paraStack;
 TypeStack structStack;
 SymbolStack symbolStack;
+FILE* out;
 
 int main(int argc, char** argv)
 {
-    if (argc <= 1) return 1;
+    if (argc <= 2) return 1;
     FILE* f = fopen(argv[1], "r");
+    out = fopen(argv[2], "w");
     if (!f)
     {
         perror(argv[1]);
+        return 1;
+    }
+    if (!out)
+    {
+        perror(argv[2]);
         return 1;
     }
     symbolTable = newSymbolTable();
