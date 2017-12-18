@@ -360,7 +360,6 @@ Node* parse_VarDec(Node* node, Type t, Operand val){
         if(t == NULL) return node;
         t = getSymbolType(symbolTable, node->child->id);
         if(t == NULL) return node;
-        printf("%s\n", node->child->id);
         if(t->kind == STRUCTURE){
             Operand op = lookup(node->child->id);
 
@@ -693,7 +692,6 @@ Node* parse_Exp(Node* node, Operand place, bool isLeftVal){
         Node* nodeExp1 = node->child;
         Node* nodeExp2 = node->child->sibling->sibling;
         Type t = getSymbolType(symbolTable, nodeExp1->id);
-        printf("%s\n", nodeExp1->id);
 
         Operand t0 = new_temp();
         Operand t1 = new_temp();
