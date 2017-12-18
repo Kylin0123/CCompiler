@@ -51,7 +51,7 @@ bool isParam;  //is now parsing parameters?
 Program: ExtDefList{
        $$=newNode("Program",1,$1);
        checkUndefinedFuncBeforeExit();
-       printSymbolTable(symbolTable);
+       //printSymbolTable(symbolTable);
        if(!success) {
            exit(0);
        }
