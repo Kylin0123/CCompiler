@@ -100,7 +100,7 @@ Node* parse_Specifier(Node* node);
 Node* parse_StructSpecifier(Node* node);
 Node* parse_OptTag(Node* node);
 Node* parse_Tag(Node* node);
-Node* parse_VarDec(Node* node, Type t);
+Node* parse_VarDec(Node* node, Type t, Operand val);
 Node* parse_FunDec(Node* node);
 Node* parse_VarList(Node* node);
 Node* parse_ParamDec(Node* node);
@@ -153,6 +153,22 @@ Operand lookup(char* id){
         operand->str = id;
     }
     else if(type->kind == STRUCTURE){
+        for(int i = 0; i < local_sym_size; i++){
+            if(!strcmp(local_sym[i], id)){
+                operand->kind = VARIABLE;
+                operand->no = i+1;
+                return operand;
+            }
+        }
+
+        copystr(local_sym[local_sym_size], id);
+        local_sym_size++;
+
+        operand->kind = VARIABLE;
+        operand->no= local_sym_size;
+        return operand;
+    }
+    else if(type->kind == ARRAY){
         for(int i = 0; i < local_sym_size; i++){
             if(!strcmp(local_sym[i], id)){
                 operand->kind = VARIABLE;
@@ -281,11 +297,11 @@ Node* parse_ExtDef(Node* node){
 
 Node* parse_ExtDecList(Node* node){
     MATCH1(VarDec){
-        node->code = parse_VarDec(node->child, NULL)->code;
+        node->code = parse_VarDec(node->child, NULL, NULL)->code;
         return node;
     }
     MATCH3(VarDec, COMMA, ExtDeclist){
-        InterCodes code1 = parse_VarDec(node->child, NULL)->code;
+        InterCodes code1 = parse_VarDec(node->child, NULL, NULL)->code;
         InterCodes code2 = parse_ExtDecList(node->child->sibling->sibling)->code;
         node->code = mergeCode(code1, code2);
         return node;
@@ -339,18 +355,15 @@ Node* parse_Tag(Node* node){
     return NULL;
 }
 
-Node* parse_VarDec(Node* node, Type t){
+Node* parse_VarDec(Node* node, Type t, Operand val){
     MATCH1(ID){
         if(t == NULL) return node;
+        t = getSymbolType(symbolTable, node->child->id);
+        if(t == NULL) return node;
+        printf("%s\n", node->child->id);
         if(t->kind == STRUCTURE){
             Operand op = lookup(node->child->id);
-            /*
-            InterCodes paramCode = newInterCodes();
-            paramCode->code = newInterCode();
-            paramCode->code->kind = PARAM;
-            paramCode->code->param.op = op;
-            
-            node->code = paramCode;*/
+
             InterCodes code1 = newInterCodes();
             code1->code = newInterCode();
             code1->code->kind = DEC;
@@ -361,7 +374,15 @@ Node* parse_VarDec(Node* node, Type t){
             return node;
         }
         else if(t->kind == ARRAY){
-            /*do nothing*/
+            Operand op = lookup(node->child->id);
+
+            InterCodes code1 = newInterCodes();
+            code1->code = newInterCode();
+            code1->code->kind = DEC;
+            code1->code->dec.op = op;
+            code1->code->dec.size = getTypeSize(t);
+
+            node->code = code1;
             return node;
         }
         else{
@@ -373,13 +394,23 @@ Node* parse_VarDec(Node* node, Type t){
             paramCode->code->param.op = op;
 
             node->code = paramCode;*/
-            node->code = NULL;
+            if(val == NULL){
+                node->code = NULL;
+            }
+            else{
+                Operand op = lookup(node->child->id);
+                InterCodes code0 = newInterCodes();
+                code0->code->kind = ASSIGN;
+                code0->code->assign.left = op;
+                code0->code->assign.right = val;
+                node->code = code0;
+            }
             return node;
         }
     }
     MATCH4(VarDec, LB, INT, RB){
-        parse_VarDec(node->child, t);
-        /*do something*/
+        if(t == NULL) return node;
+        node->code = parse_VarDec(node->child, t, NULL)->code;
         return node;
     }
     assert(0);
@@ -417,12 +448,24 @@ Node* parse_VarList(Node* node){
 Node* parse_ParamDec(Node* node){
     MATCH2(Specifier, VarDec){
         parse_Specifier(node->child);
-        Node* n = parse_VarDec(node->child->sibling, NULL);
+        Node* n = parse_VarDec(node->child->sibling, NULL, NULL);
         Operand op = lookup(n->id);
+        //Type t = getSymbolType(symbolTable, n->id);
+        
         InterCodes paramCode = newInterCodes();
         paramCode->code = newInterCode();
         paramCode->code->kind = PARAM;
         paramCode->code->param.op = op;
+/*
+        InterCodes code = NULL;
+        if(t->kind == ARRAY || t->kind == STRUCTURE){
+            code = newInterCodes();
+            code->code->kind = ASSIGN_STAR;
+            code->code->assign.left = op;
+            code->code->assign.right = op;
+        }
+  */      
+        //node->code = mergeCode(paramCode, code);   
         node->code = paramCode;   
         return node;
     }
@@ -557,31 +600,31 @@ Node* parse_Def(Node* node){
 }
 
 Node* parse_DecList(Node* node, Type t){
-    MATCH1(Dec){
-        node->code = parse_Dec(node->child, t)->code;
-        return node;
-    }
     MATCH3(Dec, COMMA, DecList){
         InterCodes code1 = parse_Dec(node->child, t)->code;
         InterCodes code2 = parse_DecList(node->child->sibling->sibling, t)->code;
         node->code = mergeCode(code1, code2);
         return node;
     }
+    MATCH1(Dec){
+        node->code = parse_Dec(node->child, t)->code;
+        return node;
+    }
+    
     assert(0);
     return NULL;
 }
 
 Node* parse_Dec(Node* node, Type t){
-    MATCH1(VarDec){
-        node->code = parse_VarDec(node->child, t)->code;
-        return node;
-    }
     MATCH3(VarDec, ASSIGNOP, Exp){
         Operand op = new_temp();
         InterCodes code2 = parse_Exp(node->child->sibling->sibling, op, false)->code;
-        //TODO: do something with op....
-        InterCodes code1 = parse_VarDec(node->child, t)->code;
+        InterCodes code1 = parse_VarDec(node->child, t, op)->code;
         node->code = mergeCode(code2, code1);
+        return node;
+    }
+    MATCH1(VarDec){
+        node->code = parse_VarDec(node->child, t, NULL)->code;
         return node;
     }
     assert(0);
@@ -644,37 +687,50 @@ Node* parse_Cond(Node* node, int label_true, int label_false){
     return node;
 }
 
+/*very important exp!!!*/
 Node* parse_Exp(Node* node, Operand place, bool isLeftVal){
     MATCH3(Exp, ASSIGNOP, Exp){
         Node* nodeExp1 = node->child;
         Node* nodeExp2 = node->child->sibling->sibling;
-        
-        //Operand variable = lookup(nodeExp1->id);
+        Type t = getSymbolType(symbolTable, nodeExp1->id);
+        printf("%s\n", nodeExp1->id);
 
         Operand t0 = new_temp();
-        InterCodes code0 = parse_Exp(nodeExp2, t0 ,false)->code;
-        InterCodes code1 = parse_Exp(nodeExp1, t0, true)->code;
-        /*
-        InterCodes code2 = newInterCodes();
-        code2->code = newInterCode();
-        code2->code->kind = ASSIGN;
-        code2->code->assign.left = place;
-        code2->code->assign.right = t0;
-        */
-        /*
-        InterCodes code_tmp = newInterCodes();
-        if(place == NULL) 
-            code_tmp = NULL;
-        else {
-            code_tmp->code = newInterCode();
-            code_tmp->code->kind = ASSIGN;
-            code_tmp->code->assign.left = place;
-            code_tmp->code->assign.right = variable;
-        }
-        */
+        Operand t1 = new_temp();
+        InterCodes code0 = NULL;
+        InterCodes code1 = NULL;
+        InterCodes code2 = NULL;
+        InterCodes code = NULL;
 
-        //node->code = mergeCode(code1, mergeCode(code2, code_tmp));
-        node->code = mergeCode(code0, code1);
+        if(t->kind != ARRAY){
+            code0 = parse_Exp(nodeExp2, t0 ,false)->code;
+            code1 = parse_Exp(nodeExp1, t0, true)->code;
+            /*code2 = newInterCodes();
+            code2->code = newInterCode();
+            code2->code->kind = ASSIGN;
+            code2->code->assign.left = t1;
+            code2->code->assign.right = t0;*/
+        }
+        else{
+            code0 = parse_Exp(nodeExp2, t0 ,false)->code;
+            code1 = parse_Exp(nodeExp1, t1, true)->code;
+            code2 = newInterCodes();
+            code2->code = newInterCode();
+            code2->code->kind = STAR_ASSIGN;
+            code2->code->assign.left = t1;
+            code2->code->assign.right = t0;
+        }
+
+        if(place != NULL){
+            code = newInterCodes();
+            code->code->kind = ASSIGN;
+            code->code->assign.left = place;
+            code->code->assign.right = t0;
+        }
+        node->code = mergeCode(
+            mergeCode(code0, code1),
+            mergeCode(code2, code));
+
         return node;
     }
     MATCH3(Exp, PLUS, Exp){
@@ -801,10 +857,113 @@ Node* parse_Exp(Node* node, Operand place, bool isLeftVal){
         return node;
     }
     MATCH4(Exp, LB, Exp, RB){
-        /*parse_Exp(node->child);
-        parse_Exp(node->child->sibling->sibling);
-        return node;*/
-        assert(0);
+        Node* nodeExp1 = node->child;
+        Node* nodeExp2 = node->child->sibling->sibling;
+        if(isLeftVal){
+            /*is left value*/
+            Operand t1 = new_temp();
+            Operand t2 = new_temp();
+            InterCodes code1 = parse_Exp(nodeExp1, t1, true)->code;
+            InterCodes code2 = parse_Exp(nodeExp2, t2, false)->code;
+            Type arrType = getSymbolType(symbolTable, nodeExp1->id);
+            Type curType = nodeExp1->type; 
+            Type t = arrType;
+            int idx = 0;
+            for(; t != curType; t = t->array.elem, idx++);
+
+            Type decayType = nodeExp1->type;
+            for(; decayType->array.elem->kind == ARRAY; decayType = decayType->array.elem);
+            int decayTypeSize = getTypeSize(decayType->array.elem);
+            int cnt = 0;
+            t = decayType;
+            for(; cnt != idx; t = t->array.prev, cnt++);
+            //printType(t);
+            t = t->array.prev;
+            int size = 1;
+            for(; t != NULL; t = t->array.prev)
+                size *= t->array.size;
+            size *= decayTypeSize; 
+
+            Operand t3 = new_temp();
+
+            InterCodes code3 = newInterCodes();
+            code3->code->kind = MUL;
+            code3->code->binop.op1 = t2;
+            code3->code->binop.op2 = number(size);
+            code3->code->binop.result = t3;
+            
+            InterCodes code4 = newInterCodes();
+            code4->code->kind = PLUS_;
+            code4->code->binop.op1 = t1;
+            code4->code->binop.op2 = t3;
+            code4->code->binop.result = place;
+
+            node->code = mergeCode(
+                mergeCode(code1, code2),
+                mergeCode(code3, code4));
+
+            return node;
+        }
+        else{
+            /*is right value*/
+            Operand t1 = new_temp();
+            Operand t2 = new_temp();
+            InterCodes code1 = parse_Exp(nodeExp1, t1, true)->code;
+            InterCodes code2 = parse_Exp(nodeExp2, t2, false)->code;
+            Type arrType = getSymbolType(symbolTable, nodeExp1->id);
+            Type curType = nodeExp1->type; 
+            Type t = arrType;
+            int idx = 0;
+            for(; t != curType; t = t->array.elem, idx++);
+
+            Type decayType = nodeExp1->type;
+            for(; decayType->array.elem->kind == ARRAY; decayType = decayType->array.elem);
+            int decayTypeSize = getTypeSize(decayType->array.elem);
+            int cnt = 0;
+            t = decayType;
+            for(; cnt != idx; t = t->array.prev, cnt++);
+            //printType(t);
+            t = t->array.prev;
+            int size = 1;
+            for(; t != NULL; t = t->array.prev)
+                size *= t->array.size;
+            size *= decayTypeSize; 
+
+
+            /*is right value*/
+            /*Operand t1 = new_temp();
+            Operand t2 = new_temp();
+            InterCodes code1 = parse_Exp(nodeExp1, t1, false)->code;
+            InterCodes code2 = parse_Exp(nodeExp2, t2, false)->code;
+            assert(nodeExp1->type->kind == ARRAY);
+            int offset = getTypeSize(nodeExp1->type->array.elem);
+            */
+            Operand t3 = new_temp();
+            InterCodes code3 = newInterCodes();
+            code3->code->kind = MUL;
+            code3->code->binop.op1 = t2;
+            code3->code->binop.op2 = number(size);
+            code3->code->binop.result = t3;
+
+            Operand t4 = new_temp();
+            InterCodes code4 = newInterCodes();
+            code4->code->kind = PLUS_;
+            code4->code->binop.op1 = t1;
+            code4->code->binop.op2 = t3;
+            code4->code->binop.result = t4;
+
+            InterCodes code5 = newInterCodes();
+            code5->code->kind = ASSIGN_STAR;
+            code5->code->assign.left = place;
+            code5->code->assign.right = t4;
+
+            node->code = mergeCode(    
+                mergeCode(
+                    mergeCode(code1, code2),
+                    mergeCode(code3, code4)),
+                code5);
+        }
+        return node;
     }
     MATCH3(Exp, DOT, ID){
         Node* nodeID = node->child->child;
@@ -887,7 +1046,12 @@ Node* parse_Exp(Node* node, Operand place, bool isLeftVal){
             Type t = getSymbolType(symbolTable, nodeID->id);
 
             InterCodes interCodes = newInterCodes();
-            if(t->kind ==STRUCTURE){
+            if(t->kind == STRUCTURE){
+                interCodes->code->kind = ASSIGN_ADDR;
+                interCodes->code->assign.left = place;
+                interCodes->code->assign.right= variable;
+            }
+            else if(t->kind == ARRAY){
                 interCodes->code->kind = ASSIGN_ADDR;
                 interCodes->code->assign.left = place;
                 interCodes->code->assign.right= variable;
@@ -900,14 +1064,27 @@ Node* parse_Exp(Node* node, Operand place, bool isLeftVal){
             node->code = interCodes;
         }
         else{
+            /*is left value*/
             Node* nodeID = node->child;
             Operand variable = lookup(nodeID->id);
-            InterCodes interCodes = newInterCodes();
-            interCodes->code = newInterCode();
-            interCodes->code->kind = ASSIGN; 
-            interCodes->code->assign.left = variable;
-            interCodes->code->assign.right = place;
-            node->code = interCodes;
+            Type t = getSymbolType(symbolTable, nodeID->id);
+            if(t->kind == ARRAY){
+                
+                InterCodes interCodes = newInterCodes();
+                interCodes->code = newInterCode();
+                interCodes->code->kind = ASSIGN_ADDR; 
+                interCodes->code->assign.left = place;
+                interCodes->code->assign.right = variable;
+                node->code = interCodes;
+            }
+            else{
+                InterCodes interCodes = newInterCodes();
+                interCodes->code = newInterCode();
+                interCodes->code->kind = ASSIGN; 
+                interCodes->code->assign.left = variable;
+                interCodes->code->assign.right = place;
+                node->code = interCodes;
+            }
         }
         return node;
     }

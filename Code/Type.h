@@ -25,7 +25,7 @@ struct Type_{
         // 基本类型 "int","float"
         char* basic;
         // 数组类型信息包括元素类型与数组大小构成
-        struct { Type elem; int size; } array;
+        struct { Type elem; Type prev; int size; } array;
         // 结构体类型信息是一个链表
         struct { char* tag; FieldList list; } structure;
         // the structure of function type's information 

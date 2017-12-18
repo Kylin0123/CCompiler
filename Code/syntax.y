@@ -168,13 +168,14 @@ VarDec: ID{
       $$=newNode("VarDec",1,$1);
       copytype($$->type, t);
       }
-      | VarDec LB INT RB{
+      | VarDec LB INT RB {
       $$=newNode("VarDec",4,$1,$2,$3,$4);
       Type newT = newType();
       newT->kind = ARRAY;
-      copytype(newT->array.elem, $1->type);
+      newT->array.elem = $1->type;
+      $1->type->array.prev = newT;
       newT->array.size = $3->i;
-      copytype($$->type, newT);
+      $$->type = newT;
       strcpy($$->id, $1->id);
       }
       ;
@@ -186,6 +187,7 @@ FunDec: ID LP VarList RP{
       | ID LP RP{
       $$=newNode("FunDec",3,$1,$2,$3);
       strcpy($$->id, $1->id);
+      newUndefinedFunc($1->id, retType, $1->lineno);
       }
       ;
 VarList: ParamDec COMMA VarList{
@@ -197,8 +199,10 @@ VarList: ParamDec COMMA VarList{
        ;
 ParamDec: { isParam = true; } Specifier VarDec{
         $$=newNode("ParamDec",2,$2,$3); 
+        copytype($2->type, $3->type);
         newParam(2,$2,$3);
         newSymbol($3->id, $2->type);
+        copytype($$->type, $3->type);
         isParam = false;
         }
         ;
@@ -210,6 +214,7 @@ CompSt: {
           newSymbol(head->name, head->type);
       }
       } LC DefList StmtList RC{
+      
       $$=newNode("CompSt",4,$2,$3,$4,$5);
       $$->lineno = $4->lineno;
       copytype($$->type, $4->type);
@@ -328,12 +333,16 @@ Exp:Exp ASSIGNOP Exp{
    }
    $$=newNode("Exp",3,$1,$2,$3);
    if($1->type != NULL && $3->type != NULL && !matchType($1->type, $3->type)){
-       printType($1->type);
+       /*printType($1->type);
+       printf("\n");
        printType($3->type);
+       printf("\n");*/
        printf("Error type 5 at Line %d: Type mismatched for assignment.\n"
                 ,yylineno);
        success = 0;
    }
+   copytype($$->type, $1->type);
+   strcpy($$->id, $1->id);
    }
    | Exp AND Exp{$$=newNode("Exp",3,$1,$2,$3);}
    | Exp OR Exp{$$=newNode("Exp",3,$1,$2,$3);}
@@ -428,6 +437,9 @@ Exp:Exp ASSIGNOP Exp{
        printf("\" is not an integer.\n");
        success = 0;
    }
+   assert($1->type->kind == ARRAY);
+   $$->type = $1->type->array.elem;
+   strcpy($$->id, $1->id);
    }
    | Exp DOT ID{
    $$=newNode("Exp",3,$1,$2,$3);
@@ -449,6 +461,7 @@ Exp:Exp ASSIGNOP Exp{
        else{
            //get the variable in struct's offset
            copytype($$->type, type);
+           strcpy($$->id, $1->id);
        }
    }
    }
@@ -473,7 +486,7 @@ Exp:Exp ASSIGNOP Exp{
    ;
 Args: Exp COMMA Args{
     $$=newNode("Args",3,$1,$2,$3);
-   newArg($1->type);
+    newArg($1->type);
     }
     | Exp{
     $$=newNode("Args",1,$1);

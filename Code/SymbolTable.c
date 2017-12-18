@@ -207,8 +207,8 @@ void printType(Type type){
             break;
         }
         case ARRAY:{
-            printType(type->array.elem);
             printf("[%d]", type->array.size);
+            printType(type->array.elem);
             break;
         }
         case FUNCTION:{

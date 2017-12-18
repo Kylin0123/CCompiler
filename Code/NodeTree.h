@@ -20,6 +20,7 @@ struct InterCodes_;
 typedef struct Node{
     char tag_name[MAX_TYPE_NAME];
     Type type;
+    int arr;  //record the head address of array
     InterCodes code;
     int lineno;
     struct Node* child;
