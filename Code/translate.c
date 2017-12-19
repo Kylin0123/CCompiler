@@ -829,7 +829,6 @@ Node* parse_Exp(Node* node, Operand place, bool isLeftVal){
             InterCodes code2 = NULL;
             for(; head != NULL; head = head->next){
                 InterCodes arg_code = newInterCodes();
-                arg_code->code = newInterCode();
                 arg_code->code->kind = ARG;
                 arg_code->code->arg.op = head->op;
                 code2 = mergeCode(code2, arg_code);
@@ -1145,7 +1144,6 @@ Node* parse_Args(Node* node, struct OperandList ** arg_list){
     MATCH3(Exp, COMMA, Args){
         Operand t1 = new_temp();
         InterCodes code1 = parse_Exp(node->child, t1, false)->code;
-       
         node->code = code1;
         
         struct OperandList* head = malloc(sizeof(struct OperandList));
@@ -1153,7 +1151,7 @@ Node* parse_Args(Node* node, struct OperandList ** arg_list){
         head->next = *arg_list;
         *arg_list = head;
 
-        InterCodes code2 = parse_Args(node->child->sibling->sibling, &head)->code;
+        InterCodes code2 = parse_Args(node->child->sibling->sibling, arg_list)->code;
         node->code = mergeCode(code1, code2);
         return node;
     }
