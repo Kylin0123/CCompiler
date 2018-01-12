@@ -10,10 +10,10 @@ MIPS newMIPS() {
 MIPS mips = NULL;
 
 #define SAVE(OP, N)\
-    fprintf(f, "sw $t"#N", %d($fp)\n", getSymbolOffset(OP))
+    fprintf(f, "sw $t"#N", -%d($fp)\n", getSymbolOffset(OP))
 
 #define LOAD(OP, N)\
-    fprintf(f, "lw $t"#N", %d($fp)\n", getSymbolOffset(OP))
+    fprintf(f, "lw $t"#N", -%d($fp)\n", getSymbolOffset(OP))
 
 
 char* getReg(FILE* f, Operand op){
@@ -107,7 +107,7 @@ bool isExistLocalSymbol(Operand op) {
     TABLE_TOP(localSymbol).offset = OFFSET;\
     TABLE_SIZE_ADD(localSymbol, 1);
 
-void addNewLocalSymbol(Operand op) {
+void addNewLocalSymbol(Operand op, int offset) {
     /*
     TABLE_TOP(localSymbol).op = op;
     TABLE_TOP(localSymbol).offset = localSymbolTable.size;
@@ -115,7 +115,7 @@ void addNewLocalSymbol(Operand op) {
 
     the following macro is equal to the above
     */
-    TABLE_PUSH(localSymbol, op, (localSymbolTable.size * 4));    
+    TABLE_PUSH(localSymbol, op, offset);    
 }
 
 int getSymbolOffset(Operand op) {
@@ -155,8 +155,8 @@ int getStackSize(InterCodes funCode) {
                     }
 
                     if(!isExistLocalSymbol(opl)){
-                        addNewLocalSymbol(opl);
                         size += 4;
+                        addNewLocalSymbol(opl, size);
                     }
                     break;
                 }
@@ -173,8 +173,8 @@ int getStackSize(InterCodes funCode) {
                     assert(isExistLocalSymbol(op1));
                     assert(isExistLocalSymbol(op2));
                     if(!isExistLocalSymbol(result)) {
-                        addNewLocalSymbol(result);
                         size += 4;
+                        addNewLocalSymbol(result, size);
                     }
 
                     break;
@@ -186,8 +186,8 @@ int getStackSize(InterCodes funCode) {
                     //TODO
                     Operand op = funCode->code->funccall.left;
                     if(!isExistLocalSymbol(op)){
-                        addNewLocalSymbol(op);
                         size += 4;
+                        addNewLocalSymbol(op ,size);
                     }
                     break;
                 }
@@ -195,8 +195,8 @@ int getStackSize(InterCodes funCode) {
                 {
                     Operand op = funCode->code->funccallread.op;
                     if(!isExistLocalSymbol(op)){
-                        addNewLocalSymbol(op);
                         size += 4;
+                        addNewLocalSymbol(op, size);
                     }
                     break;
                 }
@@ -216,7 +216,9 @@ int getStackSize(InterCodes funCode) {
                 break;
             case PARAM:
                 {
-                    addNewLocalSymbol(funCode->code->param.op);
+                    //addNewLocalSymbol(funCode->code->param.op);
+                    size += 4;
+                    addNewLocalSymbol(funCode->code->param.op, size);
                     break;
                 }
             default:
@@ -224,7 +226,7 @@ int getStackSize(InterCodes funCode) {
         }
     }
     
-    printLocalSymbolTable();
+    //printLocalSymbolTable();
 
     return size;
 
@@ -289,6 +291,7 @@ void printMIPS(FILE* f, InterCodes interCodes){
 
     int stackSize = 0; //Record the stack size of a function.
     int numOfArgs = 0;
+    int paramCnt = 0;
 
     InterCodes first = head(interCodes);
     for(; first != NULL; first = first->next){
@@ -304,7 +307,7 @@ void printMIPS(FILE* f, InterCodes interCodes){
                         //fprintf(f, "sw $t0, %d($sp)\n", getSymbolOffset(opl));
                     }
                     else if(isTempOrVariable(opl) && isTempOrVariable(opr)){
-                        fprintf(f, "lw $t0, %d($fp)\n", getSymbolOffset(opr));
+                        fprintf(f, "lw $t0, -%d($fp)\n", getSymbolOffset(opr));
                         fprintf(f, "move $t1, $t0\n");
                         SAVE(opl, 0);
                         //fprintf(f, "sw $t1, %d($sp)\n", getSymbolOffset(opl));
@@ -475,6 +478,7 @@ void printMIPS(FILE* f, InterCodes interCodes){
                 }
             case FUNCDEC:
                 {
+                    paramCnt = 0;
                     stackSize = printMIPSfuncdec(f, interCode->funcdec.op, first);
                     break;
                 }
@@ -540,11 +544,11 @@ void printMIPS(FILE* f, InterCodes interCodes){
             case ARG:
                 {
                     //TODO
-                    /*LOAD(interCode->arg.op, 0);
+                    LOAD(interCode->arg.op, 0);
                     fprintf(f, "addi $sp, $sp, -4\n");
-                    fprintf(f, "sw $t0, 0($fp)\n");
+                    fprintf(f, "sw $t0, 0($sp)\n");
                     numOfArgs++;
-                    */
+                    
                     /*
                     fprintf(f, "ARG ");
                     printOperand(f, interCode->arg.op);
@@ -611,9 +615,14 @@ void printMIPS(FILE* f, InterCodes interCodes){
             case PARAM:
                 {
                     //TODO
+                    paramCnt++;
+                    fprintf(f, "lw $t0, %d($fp)\n", 4 * (paramCnt + 1));
+                    SAVE(interCode->param.op, 0);
+                    /*
                     fprintf(f, "PARAM ");
                     printOperand(f, interCode->param.op);
                     fprintf(f, "\n");
+                    */
                     break;
                 }
             case DEC:

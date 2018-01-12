@@ -40,7 +40,7 @@ test:
 	@echo "|   T  E  S  T   |"
 	@echo "------------------"
 # @echo "\033[0;31m Attention:Do nothing! \033[0m"
-	./parser ../pretest4/testcase1.txt /dev/null
+	./parser ../pretest4/testcase2.txt /dev/null
 clean:
 	rm -f parser lex.yy.c syntax.tab.c syntax.tab.h syntax.output
 	rm -f $(OBJS) $(OBJS:.o=.d)
