@@ -206,7 +206,17 @@ int getStackSize(InterCodes funCode) {
                     break;
                 }
             /*multiple space*/
-            case DEC: 
+            case DEC:
+                {
+                    Operand op = funCode->code->dec.op;
+                    int op_size = funCode->code->dec.size;
+                    if(!isExistLocalSymbol(op)) {
+                        addNewLocalSymbol(op, op_size);
+                        size += op_size;
+                        
+                    }
+                    break;
+                }
             
             /*0 op*/
             case ARG:
@@ -334,17 +344,26 @@ void printMIPS(FILE* f, InterCodes interCodes){
             case ASSIGN_ADDR:
                 {
                     //TODO
+                    
+                    Operand opl = interCode->assign.left;
+                    Operand opr = interCode->assign.right;
+                    
+                    fprintf(f, "la $t0, -%d($fp)\n", getSymbolOffset(opr));
+                    SAVE(opl, 0);
+
+                    /*
                     printOperand(f, interCode->assign.left);
                     fprintf(f, " := &");
                     printOperand(f, interCode->assign.right);
                     fprintf(f, "\n");
+                    */
                     break;
                 }
             case STAR_ASSIGN:
                 {
                     //TODO:UNTEST
-                    LOAD(interCode->assign.right, 0);
-                    LOAD(interCode->assign.left, 1);
+                    LOAD(interCode->assign.left, 0);
+                    LOAD(interCode->assign.right, 1);
                     fprintf(f, "sw $t1, 0($t0)\n");
                     /*
                     fprintf(f, "*");
@@ -426,8 +445,15 @@ void printMIPS(FILE* f, InterCodes interCodes){
                     Operand result = interCode->binop.result;
                     Operand op1 = interCode->binop.op1;
                     Operand op2 = interCode->binop.op2;
-
-                    if(isTempOrVariable(result)
+                    
+                    if(isTempOrVariable(result) 
+                    && isTempOrVariable(op1) 
+                    && op2->kind == CONSTANT){
+                        LOAD(op1, 0);
+                        fprintf(f, "mul $t1, $t0, %d\n", op2->no);
+                        SAVE(result, 1);
+                    }
+                    else if(isTempOrVariable(result)
                     && isTempOrVariable(op1)
                     && isTempOrVariable(op2)){
                         LOAD(op1, 0);
@@ -628,9 +654,11 @@ void printMIPS(FILE* f, InterCodes interCodes){
             case DEC:
                 {
                     //TODO
-                    fprintf(f, "DEC ");
+                    
+                    /*fprintf(f, "DEC ");
                     printOperand(f, interCode->dec.op);
                     fprintf(f, " %d\n", interCode->dec.size);
+                    */
                     break;
                 }
             case ADDR_ASSIGN:
