@@ -34,11 +34,11 @@ syntax-c: $(YFILE)
 # 定义的一些伪目标
 .PHONY: clean test
 test:
-# python ../VM/irsim.py
-# ./parser ./testcase1.txt > ../test1.ir
-# ./parser ./testcase2.txt > ../test2.ir
-# ./parser ./testcase3.txt > ../test3.ir
-	./parser ./testcase4.txt
+	@echo "------------------"
+	@echo "|   T  E  S  T   |"
+	@echo "------------------"
+# @echo "\033[0;31m Attention:Do nothing! \033[0m"
+	./parser ../pretest4/testcase1.txt /dev/null
 clean:
 	rm -f parser lex.yy.c syntax.tab.c syntax.tab.h syntax.output
 	rm -f $(OBJS) $(OBJS:.o=.d)

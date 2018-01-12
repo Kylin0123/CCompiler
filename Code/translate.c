@@ -6,6 +6,9 @@
 #include "LinerIR.h"
 #include "NodeTree.h"
 #include "SymbolTable.h"
+#include "mips.h"
+
+extern InterCodes code;//Record inter code
 
 #define CHECK(NODE)\
         assert(!strcmp(node->tag_name, #NODE))
@@ -1170,9 +1173,9 @@ Node* parse_Args(Node* node, struct OperandList ** arg_list){
     return NULL;
 }
 
-Node* parse2GenCode(Node* node){
-    InterCodes code = parse_Program(node)->code;
-    printInterCodes(out, code);
-    return node;
+void translate(Node* node){
+    assert(node != NULL);
+    //update global var: code
+    code = parse_Program(node)->code;
 }
 

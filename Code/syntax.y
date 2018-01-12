@@ -18,6 +18,7 @@ extern SymbolStack paraStack;  //Record the params' symbol when defining functio
 extern SymbolStack paraStackdefined;  //Record the params' symbol when defining function.  {defined}
 extern TypeStack structStack;  //Record the struct levels and the current struct.
 extern SymbolStack symbolStack;  //Record the symbol stack for action scope.
+extern InterCodes code; //Record the inter-codes.
 Type t;   //Pass the current type value when defining variables. It's important.
 Type retType;  //pass the return type of function. It's important.
 bool isParam;  //is now parsing parameters?
@@ -55,8 +56,7 @@ Program: ExtDefList{
        if(!success) {
            exit(0);
        }
-       assert($$ != NULL);
-       parse2GenCode($$);
+       translate($$);
        //printNodeTree($$, 0);
        //printSymbolTable(structSymbolTable);
        }

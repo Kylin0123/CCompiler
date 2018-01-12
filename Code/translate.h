@@ -4,7 +4,7 @@
 #include "LinerIR.h"
 #include "NodeTree.h"
 
-Node* parse2GenCode(Node* node);
+void translate(Node* node);
 Operand newOperand();
 InterCode newInterCode();
 InterCodes newInterCodes();

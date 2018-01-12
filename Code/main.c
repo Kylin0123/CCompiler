@@ -5,6 +5,7 @@
 #include "SymbolTable.h"
 #include "TypeStack.h"
 #include "SymbolStack.h"
+#include "mips.h"
 
 extern void yyrestart(FILE*);
 extern void yyparse();
@@ -14,6 +15,7 @@ TypeStack typeStack;
 SymbolStack paraStack;
 TypeStack structStack;
 SymbolStack symbolStack;
+InterCodes code;
 FILE* out;
 
 int main(int argc, char** argv)
@@ -37,7 +39,13 @@ int main(int argc, char** argv)
     paraStack = newSymbolStack();
     structStack = newTypeStack();
     symbolStack = newSymbolStack();
+
+    //start to parse
     yyrestart(f);
     yyparse();
+    //get code
+
+    genMIPS(out, code);
+
     return 0;
 }
