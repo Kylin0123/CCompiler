@@ -683,7 +683,7 @@ void printMIPS(FILE* f, InterCodes interCodes){
 
 
 void genMIPS(FILE* out, InterCodes code){
-    printMIPS(stdout, code); 
+    printMIPS(out, code); 
 }
 
 

@@ -20,17 +20,18 @@ FILE* out;
 
 int main(int argc, char** argv)
 {
-    if (argc <= 2) return 1;
     FILE* f = fopen(argv[1], "r");
     out = fopen(argv[2], "w");
     if (!f)
     {
-        perror(argv[1]);
+        printf("parser:\033[0;31m fatal error:\033[0m no input file\n");
+        printf("compilation terminated.\n");
         return 1;
     }
     if (!out)
     {
-        perror(argv[2]);
+        printf("parser:\033[0;31m fatal error:\033[0m no output file\n");
+        printf("compilation terminated.\n");
         return 1;
     }
     symbolTable = newSymbolTable();
