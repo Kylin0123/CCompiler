@@ -169,6 +169,12 @@ void printInterCodes(FILE* f, InterCodes interCodes){
                 }
             case DIV_:
                 {
+                    printOperand(f, interCode->binop.result);
+                    fprintf(f, " := ");
+                    printOperand(f, interCode->binop.op1);
+                    fprintf(f, " / ");
+                    printOperand(f, interCode->binop.op2);
+                    fprintf(f, "\n");
                     break;
                 }
             case EMPTY:

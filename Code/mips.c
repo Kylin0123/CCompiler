@@ -10,10 +10,10 @@ MIPS newMIPS() {
 MIPS mips = NULL;
 
 #define SAVE(OP, N)\
-    fprintf(f, "sw $t"#N", %d($sp)\n", getSymbolOffset(OP))
+    fprintf(f, "sw $t"#N", %d($fp)\n", getSymbolOffset(OP))
 
 #define LOAD(OP, N)\
-    fprintf(f, "lw $t"#N", %d($sp)\n", getSymbolOffset(OP))
+    fprintf(f, "lw $t"#N", %d($fp)\n", getSymbolOffset(OP))
 
 
 char* getReg(FILE* f, Operand op){
@@ -184,6 +184,11 @@ int getStackSize(InterCodes funCode) {
             case FUNCCALL:
                 {
                     //TODO
+                    Operand op = funCode->code->funccall.left;
+                    if(!isExistLocalSymbol(op)){
+                        addNewLocalSymbol(op);
+                        size += 4;
+                    }
                     break;
                 }
             case FUNCCALLREAD:
@@ -208,15 +213,18 @@ int getStackSize(InterCodes funCode) {
             case LABEL:
             case COND:
             case RETURN_:
+                break;
             case PARAM:
-
-
+                {
+                    addNewLocalSymbol(funCode->code->param.op);
+                    break;
+                }
             default:
                 break;
         }
     }
     
-    //printLocalSymbolTable();
+    printLocalSymbolTable();
 
     return size;
 
@@ -231,6 +239,9 @@ int printMIPSfuncdec(FILE* f, Operand operand, InterCodes funCode) {
 
     int stackSize = getStackSize(funCode->next);
 
+    fprintf(f, "addi $sp, $sp, -4\n");
+    fprintf(f, "sw $fp, 0($sp)\n");
+    fprintf(f, "move $fp, $sp\n");
     fprintf(f, "addi $sp, $sp, -%d\n", stackSize);
 
     return stackSize;
@@ -277,6 +288,7 @@ void printMIPS(FILE* f, InterCodes interCodes){
     initLocalSymbolTable();
 
     int stackSize = 0; //Record the stack size of a function.
+    int numOfArgs = 0;
 
     InterCodes first = head(interCodes);
     for(; first != NULL; first = first->next){
@@ -292,7 +304,7 @@ void printMIPS(FILE* f, InterCodes interCodes){
                         //fprintf(f, "sw $t0, %d($sp)\n", getSymbolOffset(opl));
                     }
                     else if(isTempOrVariable(opl) && isTempOrVariable(opr)){
-                        fprintf(f, "lw $t0, %d($sp)\n", getSymbolOffset(opr));
+                        fprintf(f, "lw $t0, %d($fp)\n", getSymbolOffset(opr));
                         fprintf(f, "move $t1, $t0\n");
                         SAVE(opl, 0);
                         //fprintf(f, "sw $t1, %d($sp)\n", getSymbolOffset(opl));
@@ -304,11 +316,16 @@ void printMIPS(FILE* f, InterCodes interCodes){
                 }
             case ASSIGN_STAR:
                 {
-                    //TODO
+                    //TODO:UNTEST
+                    LOAD(interCode->assign.right, 0);
+                    fprintf(f, "lw $t1, 0($t0)\n");
+                    SAVE(interCode->assign.left, 1);
+                    /*
                     printOperand(f, interCode->assign.left);
                     fprintf(f, " := *");
                     printOperand(f, interCode->assign.right);
                     fprintf(f, "\n");
+                    */
                     break;
                 }
             case ASSIGN_ADDR:
@@ -322,12 +339,17 @@ void printMIPS(FILE* f, InterCodes interCodes){
                 }
             case STAR_ASSIGN:
                 {
-                    //TODO
+                    //TODO:UNTEST
+                    LOAD(interCode->assign.right, 0);
+                    LOAD(interCode->assign.left, 1);
+                    fprintf(f, "sw $t1, 0($t0)\n");
+                    /*
                     fprintf(f, "*");
                     printOperand(f, interCode->assign.left);
                     fprintf(f, " := ");
                     printOperand(f, interCode->assign.right);
                     fprintf(f, "\n");
+                    */
                     break;
                 }
             case PLUS_:
@@ -353,42 +375,98 @@ void printMIPS(FILE* f, InterCodes interCodes){
                     }
                     else{
                         assert(0);
-                        /*
-                        printOperand(f, interCode->binop.result);
-                        fprintf(f, " := ");
-                        printOperand(f, interCode->binop.op1);
-                        fprintf(f, " + ");
-                        printOperand(f, interCode->binop.op2);
-                        fprintf(f, "\n");
-                        */
                     }
                     break;
                 }
             case MINUS_:
                 {
-                    //TODO
+                    //TODO:UNTEST
+                    
+                    Operand result = interCode->binop.result;
+                    Operand op1 = interCode->binop.op1;
+                    Operand op2 = interCode->binop.op2;
+
+                    if(isTempOrVariable(result) 
+                    && isTempOrVariable(op1) 
+                    && op2->kind == CONSTANT){
+                        LOAD(op1, 0);
+                        fprintf(f, "addi $t1, $t0, -%d\n", op2->no);
+                        SAVE(op2, 1);
+                    }
+                    else if(isTempOrVariable(result)
+                    && isTempOrVariable(op1)
+                    && isTempOrVariable(op2)){
+                        LOAD(op1, 0);
+                        LOAD(op2, 1);
+                        fprintf(f, "sub $t2, $t0, $t1\n");
+                        SAVE(result, 2);
+                    }
+                    else{
+                        assert(0);
+                    }
+
+
+                    /*
                     printOperand(f, interCode->binop.result);
                     fprintf(f, " := ");
                     printOperand(f, interCode->binop.op1);
                     fprintf(f, " - ");
                     printOperand(f, interCode->binop.op2);
                     fprintf(f, "\n");
+                    */
                     break;
                 }
             case MUL:
                 {
-                    //TODO
+                    //TODO:UNTEST
+                    
+                    Operand result = interCode->binop.result;
+                    Operand op1 = interCode->binop.op1;
+                    Operand op2 = interCode->binop.op2;
+
+                    if(isTempOrVariable(result)
+                    && isTempOrVariable(op1)
+                    && isTempOrVariable(op2)){
+                        LOAD(op1, 0);
+                        LOAD(op2, 1);
+                        fprintf(f, "mul $t2, $t0, $t1\n");
+                        SAVE(result, 2);
+                    }
+                    else{
+                        assert(0);
+                    }
+                    
+                    /*
                     printOperand(f, interCode->binop.result);
                     fprintf(f, " := ");
                     printOperand(f, interCode->binop.op1);
                     fprintf(f, " * ");
                     printOperand(f, interCode->binop.op2);
                     fprintf(f, "\n");
+                    */
                     break;
                 }
             case DIV_:
                 {
-                    //TODO
+                    //TODO:UNTEST
+                    
+                    Operand result = interCode->binop.result;
+                    Operand op1 = interCode->binop.op1;
+                    Operand op2 = interCode->binop.op2;
+
+                    if(isTempOrVariable(result)
+                    && isTempOrVariable(op1)
+                    && isTempOrVariable(op2)){
+                        LOAD(op1, 0);
+                        LOAD(op2, 1);
+                        fprintf(f, "div $t0, $t1\n");
+                        fprintf(f, "mflo $t2\n");
+                        SAVE(result, 2);
+                    }
+                    else{
+                        assert(0);
+                    }
+
                     break;
                 }
             case EMPTY:
@@ -403,10 +481,22 @@ void printMIPS(FILE* f, InterCodes interCodes){
             case FUNCCALL:
                 {
                     //TODO
+                    fprintf(f, "addi $sp, $sp, -4\n");
+                    fprintf(f, "sw $ra, 0($sp)\n");
+                    fprintf(f, "jal %s\n", interCode->funccall.right->str);
+                    fprintf(f, "lw $ra, 0($sp)\n");
+                    fprintf(f, "addi $sp, $sp, 4\n");
+                    fprintf(f, "move $t0, $v0\n");
+                    fprintf(f, "addi $sp, $sp, %d\n", numOfArgs * 4);
+                    numOfArgs = 0;
+                    SAVE(interCode->funccall.left, 0);
+                    
+                    /*
                     printOperand(f, interCode->funccall.left);
                     fprintf(f, " := CALL ");
                     printOperand(f, interCode->funccall.right);
                     fprintf(f, "\n");
+                    */
                     break;
                 }
             case FUNCCALLREAD:
@@ -450,9 +540,16 @@ void printMIPS(FILE* f, InterCodes interCodes){
             case ARG:
                 {
                     //TODO
+                    /*LOAD(interCode->arg.op, 0);
+                    fprintf(f, "addi $sp, $sp, -4\n");
+                    fprintf(f, "sw $t0, 0($fp)\n");
+                    numOfArgs++;
+                    */
+                    /*
                     fprintf(f, "ARG ");
                     printOperand(f, interCode->arg.op);
                     fprintf(f, "\n");
+                    */
                     break;
                 }
             case LABEL:
@@ -476,28 +573,29 @@ void printMIPS(FILE* f, InterCodes interCodes){
                         LOAD(op2, 1);
                         fprintf(f, "bgt $t0, $t1, label%d\n", label_no);
                     }
-                    else if(!strcmp(op, "=")){
+                    else if(!strcmp(op, "==")){
                         LOAD(op1, 0);
                         LOAD(op2, 1);
                         fprintf(f, "beq $t0, $t1, label%d\n", label_no);
                     }
+                    else if(!strcmp(op, ">=")){
+                        LOAD(op1, 0);
+                        LOAD(op2, 1);
+                        fprintf(f, "bge $t0, $t1, label%d\n", label_no);
+                    }
+                    else if(!strcmp(op, "<=")){
+                        LOAD(op1, 0);
+                        LOAD(op2, 1);
+                        fprintf(f, "ble $t0, $t1, label%d\n", label_no);
+                    }
                     else{
                         assert(0);
                     }
-                    /*
-                    fprintf(f, "IF ");
-                    printOperand(f, interCode->cond.v1);
-                    fprintf(f, " %s ", interCode->cond.op);
-                    printOperand(f, interCode->cond.v2);
-                    assert(interCode->cond.label_no > 0);
-                    fprintf(f, " GOTO label%d\n", interCode->cond.label_no);
-                    */
                     break;
                 }
             case GOTO:
                 {
                     fprintf(f, "j label%d\n", interCode->label.no);
-                    //fprintf(f, "GOTO label%d\n",interCode->label.no);
                     break;
                 }
             case RETURN_:
@@ -505,13 +603,9 @@ void printMIPS(FILE* f, InterCodes interCodes){
                     LOAD(interCode->return_.op, 0);
                     fprintf(f, "move $v0, $t0\n");
                     fprintf(f, "addi $sp, $sp, %d\n", stackSize);
-                    //TODO:pop frame
+                    fprintf(f, "lw $fp, 0($sp)\n");
+                    fprintf(f, "addi $sp, $sp, 4\n");
                     fprintf(f, "jr $ra\n");
-                    /*
-                    fprintf(f, "RETURN ");
-                    printOperand(f, interCode->return_.op);
-                    fprintf(f, "\n");
-                    */
                     break;
                 }
             case PARAM:
